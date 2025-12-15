@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore/lite';
 import { Auth } from './components/Auth';
 import { BookingWizard } from './components/BookingWizard';
 import { Tracking } from './components/Tracking';
@@ -21,7 +22,8 @@ import {
   Search, 
   Menu,
   Copy,
-  Star
+  Star,
+  RefreshCw
 } from 'lucide-react';
 
 const SERVICES: Service[] = [
@@ -35,16 +37,13 @@ const SERVICES: Service[] = [
   { id: '8', name: 'Painting', icon: 'brush', priceStart: 999 },
 ];
 
-const MOCK_ORDERS: Booking[] = [
-  { id: 'ORD-101', serviceName: 'Plumbing', professionalName: 'Rajesh Kumar', date: 'Today', time: '11:00 AM', status: 'Active', price: 450, address: 'Raja Park, Jaipur' },
-  { id: 'ORD-098', serviceName: 'AC Repair', professionalName: 'Amit Singh', date: 'Oct 12', time: '02:00 PM', status: 'Completed', price: 1200, address: 'Malviya Nagar, Jaipur' },
-];
-
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<AppView>(AppView.HOME);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [orders, setOrders] = useState<Booking[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
   
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -56,6 +55,40 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, [view]);
 
+  useEffect(() => {
+    if (user && view === AppView.ORDERS) {
+      fetchOrders();
+    }
+  }, [user, view]);
+
+  const fetchOrders = async () => {
+    if (!user) return;
+    setLoadingOrders(true);
+    try {
+      const q = query(collection(db, 'order'), where('userId', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+      const fetchedOrders: Booking[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedOrders.push({
+          id: doc.id,
+          serviceName: data.serviceName,
+          professionalName: data.professionalName,
+          date: data.date,
+          time: data.time,
+          status: data.status,
+          price: data.price,
+          address: data.address
+        });
+      });
+      setOrders(fetchedOrders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
   const handleServiceClick = (service: Service) => {
     setSelectedService(service);
     setView(AppView.BOOKING);
@@ -64,6 +97,7 @@ const App: React.FC = () => {
   const handleBookingComplete = () => {
     setView(AppView.TRACKING);
     setSelectedService(null);
+    fetchOrders(); // Refresh orders after new booking
   };
 
   const handleLogout = async () => {
@@ -147,39 +181,52 @@ const App: React.FC = () => {
 
   const renderOrders = () => (
     <div className="pb-24 p-4">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 mt-2">My Bookings</h2>
-      <div className="space-y-4">
-        {MOCK_ORDERS.map((order) => (
-          <div key={order.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="font-bold text-lg text-gray-800">{order.serviceName}</h3>
-                <p className="text-sm text-gray-500">{order.professionalName}</p>
-              </div>
-              <span className={`px-2 py-1 rounded text-xs font-bold ${order.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                {order.status}
-              </span>
-            </div>
-            <div className="text-sm text-gray-600 space-y-1 mb-4">
-               <p>{order.date} • {order.time}</p>
-               <p className="truncate">{order.address}</p>
-               <p className="font-bold text-gray-900">₹{order.price}</p>
-            </div>
-            <div className="flex gap-3 pt-3 border-t">
-              {order.status === 'Active' ? (
-                <>
-                  <button onClick={() => setView(AppView.TRACKING)} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Track</button>
-                  <button className="flex-1 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium">Cancel</button>
-                </>
-              ) : (
-                <button className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-                    <Star size={16} /> Rate Pro
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center justify-between mb-6 mt-2">
+        <h2 className="text-2xl font-bold text-gray-800">My Bookings</h2>
+        <button onClick={fetchOrders} disabled={loadingOrders} className="p-2 text-red-600 hover:bg-red-50 rounded-full">
+            <RefreshCw size={20} className={loadingOrders ? "animate-spin" : ""} />
+        </button>
       </div>
+      
+      {orders.length === 0 && !loadingOrders ? (
+        <div className="text-center py-10 text-gray-500">
+            <ClipboardList size={48} className="mx-auto mb-4 opacity-20" />
+            <p>No active bookings yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+            {orders.map((order) => (
+            <div key={order.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                <div className="flex justify-between items-start mb-3">
+                <div>
+                    <h3 className="font-bold text-lg text-gray-800">{order.serviceName}</h3>
+                    <p className="text-sm text-gray-500">{order.professionalName}</p>
+                </div>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${order.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {order.status}
+                </span>
+                </div>
+                <div className="text-sm text-gray-600 space-y-1 mb-4">
+                <p>{order.date} • {order.time}</p>
+                <p className="truncate">{order.address}</p>
+                <p className="font-bold text-gray-900">₹{order.price}</p>
+                </div>
+                <div className="flex gap-3 pt-3 border-t">
+                {order.status === 'Active' ? (
+                    <>
+                    <button onClick={() => setView(AppView.TRACKING)} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">Track</button>
+                    <button className="flex-1 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium">Cancel</button>
+                    </>
+                ) : (
+                    <button className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                        <Star size={16} /> Rate Pro
+                    </button>
+                )}
+                </div>
+            </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 

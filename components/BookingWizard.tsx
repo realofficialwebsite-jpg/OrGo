@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Service, Professional } from '../types';
-import { MapPin, Calendar, Clock, CreditCard, ChevronRight, Check, Star, Ticket } from 'lucide-react';
+import { MapPin, ChevronRight, Check, Star, Ticket, Loader2 } from 'lucide-react';
+import { collection, addDoc } from 'firebase/firestore/lite';
+import { auth, db } from '../firebase';
 
 interface BookingWizardProps {
   service: Service;
@@ -23,6 +25,8 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ service, onClose, 
   const [selectedPro, setSelectedPro] = useState<Professional | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderId, setOrderId] = useState<string>('');
 
   const applyPromo = () => {
     if (promoCode.toUpperCase() === 'ORGO50') setDiscount(0.5);
@@ -37,6 +41,38 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ service, onClose, 
   };
   
   const total = (fees.service + fees.travel + fees.gst) * (1 - discount);
+
+  const handleConfirmBooking = async () => {
+    if (!auth.currentUser) return;
+    setIsSubmitting(true);
+    
+    try {
+      const bookingData = {
+        userId: auth.currentUser.uid,
+        serviceName: service.name,
+        serviceId: service.id,
+        professionalName: selectedPro?.name || 'Assigned Professional',
+        professionalId: selectedPro?.id || null,
+        date,
+        time: timeSlot,
+        address,
+        problem,
+        price: Math.round(total),
+        status: 'Active',
+        createdAt: new Date().toISOString()
+      };
+
+      // Add to 'order' collection as requested
+      const docRef = await addDoc(collection(db, 'order'), bookingData);
+      setOrderId(docRef.id);
+      setStep(5);
+    } catch (error) {
+      console.error("Error creating booking:", error);
+      alert("Failed to create booking. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -177,10 +213,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ service, onClose, 
         <Check className="text-green-600" size={40} />
       </div>
       <h2 className="text-2xl font-bold text-gray-800 mb-2">Booking Confirmed!</h2>
-      <p className="text-gray-600 mb-8">Booking ID: #ORD-{Math.floor(Math.random() * 10000)}</p>
+      <p className="text-gray-600 mb-8">Booking ID: #{orderId.slice(0, 8).toUpperCase()}</p>
       
       <div className="w-full space-y-3">
-        <button onClick={() => onComplete({id: 'new', status: 'Active'})} className="w-full py-3 bg-red-600 text-white rounded-lg font-bold">
+        <button onClick={() => onComplete({id: orderId, status: 'Active'})} className="w-full py-3 bg-red-600 text-white rounded-lg font-bold">
           Track Order
         </button>
         <button onClick={onClose} className="w-full py-3 border border-gray-300 text-gray-600 rounded-lg font-medium">
@@ -210,14 +246,20 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ service, onClose, 
         <div className="p-4 border-t bg-white safe-area-bottom">
           <button 
             disabled={
+              isSubmitting ||
               (step === 1 && !address) || 
               (step === 2 && (!date || !timeSlot)) ||
               (step === 3 && !selectedPro)
             }
-            onClick={() => step === 4 ? setStep(5) : setStep(s => s + 1)}
+            onClick={() => step === 4 ? handleConfirmBooking() : setStep(s => s + 1)}
             className="w-full bg-red-600 text-white py-3 rounded-lg font-bold text-lg disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {step === 4 ? 'Confirm Booking' : 'Next Step'} <ChevronRight size={20} />
+            {isSubmitting ? (
+              <>Processing <Loader2 className="animate-spin" size={20} /></>
+            ) : (
+              step === 4 ? 'Confirm Booking' : 
+              <>Next Step <ChevronRight size={20} /></>
+            )}
           </button>
         </div>
       )}
