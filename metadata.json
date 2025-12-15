@@ -1,0 +1,7 @@
+{
+  "name": "OrGo - On-Demand Home Services",
+  "description": "A mobile-first on-demand home services application for Jaipur, featuring authentication, booking wizards, live tracking, and order management.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
