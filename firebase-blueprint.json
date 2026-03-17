@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "photo": { "type": "string", "description": "URL to profile photo" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
+      },
+      "required": ["name", "email", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Booking/Order information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the user who placed the order" },
+        "serviceName": { "type": "string", "description": "Name of the service booked" },
+        "serviceId": { "type": "string", "description": "ID of the service" },
+        "professionalName": { "type": "string", "description": "Name of the professional" },
+        "professionalId": { "type": "string", "description": "ID of the professional" },
+        "date": { "type": "string", "description": "Date of service" },
+        "time": { "type": "string", "description": "Time of service" },
+        "address": { "type": "string", "description": "Service address" },
+        "problem": { "type": "string", "description": "Description of the problem" },
+        "price": { "type": "number", "description": "Price of the service" },
+        "status": { "type": "string", "description": "Status of the order" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Order creation timestamp" }
+      },
+      "required": ["userId", "serviceName", "date", "time", "address", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection"
+    },
+    "/order/{orderId}": {
+      "schema": "Order",
+      "description": "Orders collection"
+    }
+  }
+}

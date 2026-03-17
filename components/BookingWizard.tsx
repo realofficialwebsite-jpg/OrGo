@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Service, Professional } from '../types';
+import { Service, Professional } from '../src/types';
 import { MapPin, ChevronRight, Check, Star, Ticket, Loader2 } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore/lite';
-import { auth, db } from '../firebase';
+import { auth, db } from '../src/firebase';
+import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 
 interface BookingWizardProps {
   service: Service;
@@ -67,8 +68,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ service, onClose, 
       setOrderId(docRef.id);
       setStep(5);
     } catch (error) {
-      console.error("Error creating booking:", error);
-      alert("Failed to create booking. Please try again.");
+      handleFirestoreError(error, OperationType.CREATE, 'order');
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +79,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ service, onClose, 
       <h3 className="text-xl font-bold text-gray-800">Where is the service needed?</h3>
       <div className="space-y-4">
         <button 
-          onClick={() => setAddress('123, Pink City Main Rd, Raja Park, Jaipur, 302004')}
+          onClick={() => setAddress('Poornima University, Plot No 2027-2031, Ramchandrapura, P.O. Vidhani Vatika, Sitapura Extension, Jaipur, Rajasthan, 303905')}
           className="w-full flex items-center gap-3 p-4 border border-red-100 bg-red-50 text-red-700 rounded-lg font-medium"
         >
           <MapPin size={20} /> Use Current Location

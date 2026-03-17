@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore/lite';
-import { Auth } from './components/Auth';
-import { BookingWizard } from './components/BookingWizard';
-import { Tracking } from './components/Tracking';
-import { Account } from './components/Account';
+import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
+import { Auth } from '../components/Auth';
+import { BookingWizard } from '../components/BookingWizard';
+import { Tracking } from '../components/Tracking';
+import { Account } from '../components/Account';
 import { Service, AppView, Booking } from './types';
 import { 
   Home, 
@@ -83,7 +84,7 @@ const App: React.FC = () => {
       });
       setOrders(fetchedOrders);
     } catch (error) {
-      console.error("Error fetching orders:", error);
+      handleFirestoreError(error, OperationType.LIST, 'order');
     } finally {
       setLoadingOrders(false);
     }
@@ -130,7 +131,10 @@ const App: React.FC = () => {
             <h1 className="font-extrabold text-2xl tracking-tighter">OrGo</h1>
             <Menu size={24} />
         </div>
-        <div className="flex items-center gap-2 bg-red-700 bg-opacity-50 p-2 rounded-lg cursor-pointer">
+        <div 
+          onClick={() => alert('Default Location Set: Poornima University, Plot No 2027-2031, Ramchandrapura, P.O. Vidhani Vatika, Sitapura Extension, Jaipur, Rajasthan, 303905')}
+          className="flex items-center gap-2 bg-red-700 bg-opacity-50 p-2 rounded-lg cursor-pointer"
+        >
           <MapPin size={18} className="text-red-200" />
           <div className="flex-1">
             <p className="text-xs text-red-200 font-medium">Location</p>

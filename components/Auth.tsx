@@ -5,11 +5,13 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile,
-  UserCredential
+  UserCredential,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore/lite';
-import { auth, db } from '../firebase';
-import { Lock, Mail, Phone, User as UserIcon, AlertCircle, CheckCircle } from 'lucide-react';
+import { auth, db } from '../src/firebase';
+import { Lock, Mail, User as UserIcon, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface AuthProps {
   onLoginSuccess: () => void;
@@ -23,10 +25,40 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if user document exists, if not create it
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+          await setDoc(userDocRef, {
+              name: user.displayName || 'User',
+              email: user.email || '',
+              photo: user.photoURL || '',
+              phone: user.phoneNumber || '', 
+              createdAt: new Date().toISOString()
+          });
+      }
+
+      onLoginSuccess();
+    } catch (err: any) {
+      console.error("Google Login Error:", err);
+      setError(err.message.replace('Firebase: ', ''));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +103,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             name: fullName,
             email: email,
             photo: '',
-            phone: phone,
             createdAt: new Date().toISOString()
         });
 
@@ -106,9 +137,18 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           </h2>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 flex items-center gap-2 text-sm">
-              <AlertCircle size={16} />
-              {error}
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 flex flex-col gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} />
+                <span className="font-bold">Error</span>
+              </div>
+              <p>{error}</p>
+              {error.includes('billing-not-enabled') && (
+                <div className="mt-2 p-2 bg-white rounded border border-red-100 text-xs">
+                  <p className="font-bold mb-1">💡 Solution:</p>
+                  <p>Firebase now requires a <b>Blaze (Paid) Plan</b> for SMS authentication in many regions. You can use <b>Google Login</b> or <b>Email</b> instead, which are completely free.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -133,33 +173,24 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     required
                   />
                 </div>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 text-gray-400" size={20} />
-                  <input
-                    type="tel"
-                    placeholder="Phone (+91)"
-                    className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </div>
               </>
             )}
 
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="email"
-                placeholder="Email Address"
-                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+            {(mode === 'LOGIN' || mode === 'SIGNUP' || mode === 'FORGOT') && (
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            )}
 
-            {mode !== 'FORGOT' && (
+            {(mode === 'LOGIN' || mode === 'SIGNUP') && (
               <div className="relative">
                 <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
                 <input
@@ -200,10 +231,10 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           </form>
 
           {mode === 'LOGIN' && (
-            <div className="mt-4 text-center">
+            <div className="mt-4 flex flex-col gap-2 text-center">
               <button 
                 onClick={() => setMode('FORGOT')}
-                className="text-red-600 text-sm font-medium hover:underline"
+                className="text-gray-500 text-xs font-medium hover:underline"
               >
                 Forgot Password?
               </button>
@@ -213,13 +244,14 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           <div className="mt-6 flex flex-col gap-3">
             {(mode === 'LOGIN' || mode === 'SIGNUP') && (
                 <>
-                <button type="button" className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:bg-gray-50">
+                <button 
+                  type="button" 
+                  onClick={handleGoogleLogin}
+                  disabled={loading}
+                  className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:bg-gray-50 transition disabled:opacity-50"
+                >
                     <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
                     Continue with Google
-                </button>
-                <button type="button" className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:bg-gray-50">
-                    <img src="https://www.svgrepo.com/show/511330/apple-173.svg" alt="Apple" className="w-5 h-5" />
-                    Continue with Apple
                 </button>
                 </>
             )}

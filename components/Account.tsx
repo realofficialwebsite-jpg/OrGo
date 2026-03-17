@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { User, deleteUser, updateProfile } from 'firebase/auth';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore/lite';
-import { auth, db } from '../firebase';
+import { auth, db } from '../src/firebase';
+import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 import { 
   LogOut, 
   User as UserIcon, 
@@ -19,7 +20,7 @@ import {
   Settings,
   HelpCircle
 } from 'lucide-react';
-import { AppView, UserProfile } from '../types';
+import { AppView, UserProfile } from '../src/types';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AccountProps {
@@ -58,6 +59,7 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate }) =>
         }
       } catch (error) {
         console.error("Error fetching profile:", error);
+        handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
       } finally {
         setLoading(false);
       }
@@ -83,7 +85,7 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate }) =>
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("Failed to update profile.");
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
     } finally {
       setLoading(false);
     }
@@ -100,7 +102,7 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate }) =>
         onLogout();
       } catch (error) {
         console.error("Error deleting account:", error);
-        alert("Failed to delete account. You may need to re-login.");
+        handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}`);
       }
     }
   };
@@ -114,7 +116,7 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate }) =>
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center overflow-hidden border-2 border-red-50 relative">
              {profile.photo ? (
-                <img src={profile.photo} alt="Profile" className="w-full h-full object-cover" />
+                <img src={profile.photo} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
              ) : (
                 <span className="text-red-600 text-2xl font-bold">{profile.name ? profile.name[0].toUpperCase() : 'U'}</span>
              )}
