@@ -1,5 +1,5 @@
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase"; // This connects to the 'db' we exported in Step 1
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"; // Add this line
+import { db } from "../firebase"; 
 import { getAuth } from "firebase/auth";
 
 import React, { useState, useEffect } from 'react';
@@ -29,13 +29,16 @@ export const NotificationHandler: React.FC = () => {
       } else if (result) {
         setUserToken(result);
         setPermissionStatus('granted');
-        const auth = getAuth();
+       const auth = getAuth();
     if (auth.currentUser) {
       setDoc(doc(db, "users", auth.currentUser.uid), {
         fcmToken: result,
         updatedAt: serverTimestamp(),
-      }, { merge: true });
+      }, { merge: true })
+      .then(() => console.log("Token saved!"))
+      .catch((err) => console.error("Save error:", err));
     }
+
       } else {
         setUserToken("Unknown error fetching token.");
       }
