@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { User, deleteUser, updateProfile } from 'firebase/auth';
-import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore/lite';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../src/firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 import { 

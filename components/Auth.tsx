@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile,
+  signOut,
   UserCredential,
   GoogleAuthProvider,
   signInWithPopup
@@ -12,6 +13,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../src/firebase';
 import { Lock, Mail, User as UserIcon, AlertCircle, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface AuthProps {
   onLoginSuccess: () => void;
@@ -28,6 +30,8 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [sentEmail, setSentEmail] = useState('');
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -60,6 +64,45 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const [resendLoading, setResendLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (cooldown > 0) {
+      timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  const handleResendVerification = async () => {
+    if (cooldown > 0) return;
+
+    const targetEmail = email || sentEmail;
+    if (!targetEmail) {
+      setError("Please enter your email address first.");
+      return;
+    }
+    setResendLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password);
+      await sendEmailVerification(userCredential.user);
+      await signOut(auth);
+      setMessage("Verification email resent! Please check your inbox.");
+      setError("");
+      setCooldown(60); // 60 seconds cooldown
+    } catch (err: any) {
+      if (err.code === 'auth/too-many-requests') {
+        setError("Too many requests. Please wait a few minutes before trying again.");
+        setCooldown(60);
+      } else {
+        setError("Failed to resend verification email: " + err.message.replace('Firebase: ', ''));
+      }
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -70,6 +113,13 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       if (mode === 'LOGIN') {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+
+        if (!user.emailVerified) {
+          await signOut(auth);
+          setError("Please verify your email address before logging in. Check your inbox for the verification link.");
+          setLoading(false);
+          return;
+        }
 
         // Check if user document exists, if not create it (sync legacy users or external auth)
         const userDocRef = doc(db, "users", user.uid);
@@ -108,7 +158,11 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
         await sendEmailVerification(user);
         
-        setMessage("Account created! Verification email sent.");
+        // Sign out after signup to enforce verification
+        await signOut(auth);
+        
+        setSentEmail(email);
+        setVerificationSent(true);
       } else if (mode === 'FORGOT') {
         await sendPasswordResetEmail(auth, email);
         setMessage("Password reset email sent! Check your inbox.");
@@ -123,155 +177,230 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
-        <div className="bg-red-600 p-8 text-center text-white">
-          <h1 className="text-4xl font-bold tracking-tighter mb-2">OrGo</h1>
-          <p className="text-red-100 font-medium">Home Services in Jaipur</p>
-        </div>
+      <AnimatePresence mode="wait">
+        {verificationSent ? (
+          <motion.div
+            key="verification"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden"
+          >
+            <div className="bg-red-600 p-8 text-center text-white">
+              <h1 className="text-4xl font-bold tracking-tighter mb-2">OrGo</h1>
+              <p className="text-red-100 font-medium">Home Services in Jaipur</p>
+            </div>
 
-        <div className="p-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-            {mode === 'LOGIN' && 'Welcome Back'}
-            {mode === 'SIGNUP' && 'Create Account'}
-            {mode === 'FORGOT' && 'Reset Password'}
-          </h2>
-
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 flex flex-col gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <AlertCircle size={16} />
-                <span className="font-bold">Error</span>
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle size={32} />
               </div>
-              <p>{error}</p>
-              {error.includes('billing-not-enabled') && (
-                <div className="mt-2 p-2 bg-white rounded border border-red-100 text-xs">
-                  <p className="font-bold mb-1">💡 Solution:</p>
-                  <p>Firebase now requires a <b>Blaze (Paid) Plan</b> for SMS authentication in many regions. You can use <b>Google Login</b> or <b>Email</b> instead, which are completely free.</p>
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">Verify your email</h2>
+              <p className="text-gray-600 mb-8">
+                We have sent you a verification email to <span className="font-semibold text-gray-800">{sentEmail}</span>. Please verify it and log in.
+              </p>
+              
+              {message && (
+                <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-6 text-sm">
+                  {message}
                 </div>
               )}
-            </div>
-          )}
 
-          {message && (
-            <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 flex items-center gap-2 text-sm">
-              <CheckCircle size={16} />
-              {message}
-            </div>
-          )}
-
-          <form onSubmit={handleAuth} className="space-y-4">
-            {mode === 'SIGNUP' && (
-              <>
-                <div className="relative">
-                  <UserIcon className="absolute left-3 top-3 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Full Name"
-                    className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
+              {error && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-6 text-sm">
+                  {error}
                 </div>
-              </>
-            )}
-
-            {(mode === 'LOGIN' || mode === 'SIGNUP' || mode === 'FORGOT') && (
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-                <input
-                  type="email"
-                  placeholder="Email Address"
-                  className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            )}
-
-            {(mode === 'LOGIN' || mode === 'SIGNUP') && (
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            )}
-
-            {mode === 'SIGNUP' && (
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
-                <input
-                  type="password"
-                  placeholder="Confirm Password"
-                  className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-red-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-red-700 transition disabled:opacity-50"
-            >
-              {loading ? 'Processing...' : (
-                mode === 'LOGIN' ? 'Login' : 
-                mode === 'SIGNUP' ? 'Sign Up' : 'Send Reset Link'
               )}
-            </button>
-          </form>
 
-          {mode === 'LOGIN' && (
-            <div className="mt-4 flex flex-col gap-2 text-center">
-              <button 
-                onClick={() => setMode('FORGOT')}
-                className="text-gray-500 text-xs font-medium hover:underline"
-              >
-                Forgot Password?
-              </button>
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-col gap-3">
-            {(mode === 'LOGIN' || mode === 'SIGNUP') && (
-                <>
-                <button 
-                  type="button" 
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:bg-gray-50 transition disabled:opacity-50"
+              <div className="space-y-4">
+                <button
+                  onClick={() => {
+                    setVerificationSent(false);
+                    setMode('LOGIN');
+                    setMessage(null);
+                    setError(null);
+                  }}
+                  className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200"
                 >
-                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-                    Continue with Google
+                  Login
                 </button>
-                </>
-            )}
-          </div>
+                
+                <button
+                  onClick={handleResendVerification}
+                  disabled={resendLoading || cooldown > 0}
+                  className="w-full text-gray-500 py-2 text-sm font-medium hover:text-red-600 transition-colors disabled:opacity-50"
+                >
+                  {resendLoading ? "Sending..." : (cooldown > 0 ? `Resend in ${cooldown}s` : "Didn't receive the email? Resend")}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="auth-form"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden"
+          >
+            <div className="bg-red-600 p-8 text-center text-white">
+              <h1 className="text-4xl font-bold tracking-tighter mb-2">OrGo</h1>
+              <p className="text-red-100 font-medium">Home Services in Jaipur</p>
+            </div>
 
-          <div className="mt-8 text-center text-gray-600">
-            {mode === 'LOGIN' ? (
-              <>
-                Don't have an account?{' '}
-                <button onClick={() => setMode('SIGNUP')} className="text-red-600 font-bold hover:underline">Create Account</button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <button onClick={() => setMode('LOGIN')} className="text-red-600 font-bold hover:underline">Login</button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                {mode === 'LOGIN' && 'Welcome Back'}
+                {mode === 'SIGNUP' && 'Create Account'}
+                {mode === 'FORGOT' && 'Reset Password'}
+              </h2>
+
+              {error && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 flex flex-col gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={16} />
+                    <span className="font-bold">Error</span>
+                  </div>
+                  <p>{error}</p>
+                  {error.includes('billing-not-enabled') && (
+                    <div className="mt-2 p-2 bg-white rounded border border-red-100 text-xs">
+                      <p className="font-bold mb-1">💡 Solution:</p>
+                      <p>Firebase now requires a <b>Blaze (Paid) Plan</b> for SMS authentication in many regions. You can use <b>Google Login</b> or <b>Email</b> instead, which are completely free.</p>
+                    </div>
+                  )}
+                  {error.includes("verify your email") && (
+                    <button
+                      onClick={handleResendVerification}
+                      disabled={resendLoading || cooldown > 0}
+                      className="mt-2 p-2 bg-white rounded border border-red-100 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      {resendLoading ? "Sending..." : (cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email")}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {message && (
+                <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 flex items-center gap-2 text-sm">
+                  <CheckCircle size={16} />
+                  {message}
+                </div>
+              )}
+
+              <form onSubmit={handleAuth} className="space-y-4">
+                {mode === 'SIGNUP' && (
+                  <div className="relative">
+                    <UserIcon className="absolute left-3 top-3 text-gray-400" size={20} />
+                    <input
+                      type="text"
+                      placeholder="Full Name"
+                      className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                {(mode === 'LOGIN' || mode === 'SIGNUP' || mode === 'FORGOT') && (
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
+                    <input
+                      type="email"
+                      placeholder="Email Address"
+                      className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                {(mode === 'LOGIN' || mode === 'SIGNUP') && (
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                {mode === 'SIGNUP' && (
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
+                    <input
+                      type="password"
+                      placeholder="Confirm Password"
+                      className="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-red-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {loading ? 'Processing...' : (
+                    mode === 'LOGIN' ? 'Login' : 
+                    mode === 'SIGNUP' ? 'Sign Up' : 'Send Reset Link'
+                  )}
+                </button>
+              </form>
+
+              {mode === 'LOGIN' && (
+                <div className="mt-4 flex flex-col gap-2 text-center">
+                  <button 
+                    onClick={() => setMode('FORGOT')}
+                    className="text-gray-500 text-xs font-medium hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-col gap-3">
+                {(mode === 'LOGIN' || mode === 'SIGNUP') && (
+                    <>
+                    <button 
+                      type="button" 
+                      onClick={handleGoogleLogin}
+                      disabled={loading}
+                      className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:bg-gray-50 transition disabled:opacity-50"
+                    >
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+                        Continue with Google
+                    </button>
+                    </>
+                )}
+              </div>
+
+              <div className="mt-8 text-center text-gray-600">
+                {mode === 'LOGIN' ? (
+                  <>
+                    Don't have an account?{' '}
+                    <button onClick={() => setMode('SIGNUP')} className="text-red-600 font-bold hover:underline">Create Account</button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{' '}
+                    <button onClick={() => setMode('LOGIN')} className="text-red-600 font-bold hover:underline">Login</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

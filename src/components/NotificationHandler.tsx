@@ -1,11 +1,8 @@
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"; // Add this line
-import { db } from "../firebase"; 
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db, messaging, getOrGoToken } from "../firebase"; 
 import { getAuth } from "firebase/auth";
-
 import React, { useState, useEffect } from 'react';
-import { messaging, getOrGoToken } from '../firebase';
 import { onMessage } from 'firebase/messaging';
-import { Copy, Bell, BellOff } from 'lucide-react';
 
 export const NotificationHandler: React.FC = () => {
   const [userToken, setUserToken] = useState<string>("Fetching token...");
@@ -57,63 +54,5 @@ export const NotificationHandler: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(userToken);
-    alert('Token copied to clipboard!');
-  };
-
-  return (
-    <div className="p-4 bg-white border-b border-gray-200 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          {permissionStatus === 'granted' ? (
-            <div className="bg-green-100 p-1.5 rounded-full">
-              <Bell size={18} className="text-green-600" />
-            </div>
-          ) : (
-            <div className="bg-red-100 p-1.5 rounded-full">
-              <BellOff size={18} className="text-red-600" />
-            </div>
-          )}
-          <div>
-            <h3 className="font-bold text-sm text-gray-800">Your OrGo FCM Token</h3>
-            <p className="text-[10px] text-gray-500">Required for sending push notifications</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="relative group">
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 font-mono text-[11px] text-gray-700 break-all leading-relaxed max-h-24 overflow-y-auto">
-          {userToken}
-        </div>
-        <button 
-          onClick={copyToClipboard}
-          className="mt-2 w-full flex items-center justify-center gap-2 bg-gray-800 text-white py-2 rounded-lg text-xs font-bold hover:bg-gray-900 transition active:scale-95"
-        >
-          <Copy size={14} /> Copy Token
-        </button>
-      </div>
-
-      {userToken.includes("VAPID Key not set") && (
-        <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-100 flex flex-col gap-1">
-          <p className="text-[10px] text-blue-700 font-bold">How to fix:</p>
-          <p className="text-[10px] text-blue-600 leading-tight">
-            1. Go to Firebase Console &gt; Project Settings &gt; Cloud Messaging.<br/>
-            2. Find "Web Push certificates" and copy the "Key pair" string.<br/>
-            3. In AI Studio, go to Settings &gt; Environment Variables.<br/>
-            4. Add <b>VITE_VAPID_KEY</b> with your key pair value.
-          </p>
-        </div>
-      )}
-
-      {permissionStatus !== 'granted' && (
-        <div className="mt-3 p-2 bg-red-50 rounded border border-red-100 flex items-start gap-2">
-          <BellOff size={14} className="text-red-500 mt-0.5" />
-          <p className="text-[10px] text-red-700 leading-tight">
-            <b>Notifications Disabled:</b> Please click the lock icon in your browser address bar and set Notifications to "Allow" to get your token.
-          </p>
-        </div>
-      )}
-    </div>
-  );
+  return null;
 };

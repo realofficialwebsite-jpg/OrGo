@@ -49,6 +49,15 @@ const App: React.FC = () => {
   
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser && !currentUser.emailVerified) {
+        // If user is not verified, we don't treat them as "logged in" for the main app
+        // This allows Auth.tsx to finish its signup flow (signOut + show verification screen)
+        // without App.tsx unmounting it.
+        setUser(null);
+        setLoading(false);
+        setView(AppView.AUTH);
+        return;
+      }
       setUser(currentUser);
       setLoading(false);
       if (!currentUser) setView(AppView.AUTH);
