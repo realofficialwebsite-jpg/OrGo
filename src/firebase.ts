@@ -15,14 +15,16 @@ export const getOrGoToken = async () => {
     if (permission === 'granted') {
       const vapidKey = import.meta.env.VITE_VAPID_KEY;
       if (!vapidKey) {
-        console.warn('VITE_VAPID_KEY is not set.');
-        return null;
+        console.warn('VITE_VAPID_KEY is not set in environment variables.');
+        return "MISSING_VAPID_KEY";
       }
-      return await getToken(messaging, { vapidKey });
+      const token = await getToken(messaging, { vapidKey });
+      if (token) return token;
+      return "TOKEN_NOT_FOUND";
     }
-    return null;
+    return "PERMISSION_DENIED";
   } catch (error) {
-    console.error('Error getting token:', error);
-    return null;
+    console.error('Error getting FCM token:', error);
+    return `ERROR: ${error instanceof Error ? error.message : String(error)}`;
   }
 };

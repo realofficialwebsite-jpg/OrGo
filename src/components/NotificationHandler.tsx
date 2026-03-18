@@ -9,13 +9,24 @@ export const NotificationHandler: React.FC = () => {
 
   useEffect(() => {
     const fetchToken = async () => {
-      const token = await getOrGoToken();
-      if (token) {
-        setUserToken(token);
+      const result = await getOrGoToken();
+      if (result === "MISSING_VAPID_KEY") {
+        setUserToken("VAPID Key not set in environment variables.");
+        setPermissionStatus('granted');
+      } else if (result === "TOKEN_NOT_FOUND") {
+        setUserToken("Token not found. Check service worker registration.");
+        setPermissionStatus('granted');
+      } else if (result === "PERMISSION_DENIED") {
+        setUserToken("Permission denied.");
+        setPermissionStatus('denied');
+      } else if (result?.startsWith("ERROR:")) {
+        setUserToken(result);
+        setPermissionStatus('granted');
+      } else if (result) {
+        setUserToken(result);
         setPermissionStatus('granted');
       } else {
-        setUserToken("Permission denied or no token found.");
-        setPermissionStatus(Notification.permission);
+        setUserToken("Unknown error fetching token.");
       }
     };
     fetchToken();
@@ -68,6 +79,18 @@ export const NotificationHandler: React.FC = () => {
           <Copy size={14} /> Copy Token
         </button>
       </div>
+
+      {userToken.includes("VAPID Key not set") && (
+        <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-100 flex flex-col gap-1">
+          <p className="text-[10px] text-blue-700 font-bold">How to fix:</p>
+          <p className="text-[10px] text-blue-600 leading-tight">
+            1. Go to Firebase Console &gt; Project Settings &gt; Cloud Messaging.<br/>
+            2. Find "Web Push certificates" and copy the "Key pair" string.<br/>
+            3. In AI Studio, go to Settings &gt; Environment Variables.<br/>
+            4. Add <b>VITE_VAPID_KEY</b> with your key pair value.
+          </p>
+        </div>
+      )}
 
       {permissionStatus !== 'granted' && (
         <div className="mt-3 p-2 bg-red-50 rounded border border-red-100 flex items-start gap-2">
