@@ -1,3 +1,7 @@
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase"; // This connects to the 'db' we exported in Step 1
+import { getAuth } from "firebase/auth";
+
 import React, { useState, useEffect } from 'react';
 import { messaging, getOrGoToken } from '../firebase';
 import { onMessage } from 'firebase/messaging';
@@ -25,6 +29,13 @@ export const NotificationHandler: React.FC = () => {
       } else if (result) {
         setUserToken(result);
         setPermissionStatus('granted');
+        const auth = getAuth();
+    if (auth.currentUser) {
+      setDoc(doc(db, "users", auth.currentUser.uid), {
+        fcmToken: result,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
       } else {
         setUserToken("Unknown error fetching token.");
       }
