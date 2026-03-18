@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Service, Professional } from '../src/types';
 import { MapPin, ChevronRight, Check, Star, Ticket, Loader2 } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore/lite';
+import { collection, addDoc } from 'firebase/firestore';
 import { auth, db } from '../src/firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 

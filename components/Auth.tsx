@@ -9,7 +9,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore/lite';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../src/firebase';
 import { Lock, Mail, User as UserIcon, AlertCircle, CheckCircle } from 'lucide-react';
 

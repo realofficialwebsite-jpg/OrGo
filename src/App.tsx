@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { collection, query, where, getDocs } from 'firebase/firestore/lite';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 import { Auth } from '../components/Auth';
 import { BookingWizard } from '../components/BookingWizard';
 import { Tracking } from '../components/Tracking';
 import { Account } from '../components/Account';
+import { NotificationHandler } from './components/NotificationHandler';
 import { Service, AppView, Booking } from './types';
 import { 
   Home, 
@@ -264,6 +265,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans max-w-md mx-auto shadow-2xl relative overflow-hidden">
+      <NotificationHandler />
       {/* Content Area */}
       <div className="h-full overflow-y-auto no-scrollbar bg-gray-50 min-h-screen">
         {view === AppView.HOME && renderHome()}
