@@ -1,8 +1,35 @@
-export interface Service {
+export interface ServiceItem {
+  id: string;
+  title: string;
+  rating: number;
+  reviews: string;
+  price: number;
+  descriptionPoints: string[];
+  image: string;
+}
+
+export interface SubCategory {
+  id: string;
+  title: string;
+  icon: string;
+  image?: string;
+  items: ServiceItem[];
+}
+
+export interface Category {
   id: string;
   name: string;
   icon: string;
   priceStart: number;
+  image: string;
+  tag?: string;
+  category: string;
+  subCategories: SubCategory[];
+  color?: string;
+}
+
+export interface CartItem extends ServiceItem {
+  quantity: number;
 }
 
 export interface Professional {
@@ -17,23 +44,44 @@ export interface Professional {
 
 export interface Booking {
   id: string;
-  serviceName: string;
-  date: string;
-  time: string;
-  status: 'Active' | 'Completed' | 'Cancelled';
-  price: number;
-  professionalName: string;
+  userId: string;
+  cartItems: CartItem[];
+  grandTotal: number;
   address: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  instructions: string;
+  imageUrl?: string;
+  status: 'Active' | 'Completed' | 'Cancelled';
+  createdAt: any;
 }
 
 export enum AppView {
   AUTH = 'AUTH',
   HOME = 'HOME',
   ORDERS = 'ORDERS',
-  OFFERS = 'OFFERS',
   TRACKING = 'TRACKING',
   ACCOUNT = 'ACCOUNT',
-  BOOKING = 'BOOKING'
+  BOOKING = 'BOOKING',
+  SUB_CATEGORY = 'SUB_CATEGORY',
+  SERVICE_DETAILS = 'SERVICE_DETAILS',
+  CART = 'CART',
+  CHECKOUT = 'CHECKOUT',
+  PROFESSIONAL_REGISTRATION = 'PROFESSIONAL_REGISTRATION',
+  PROVIDER_DASHBOARD = 'PROVIDER_DASHBOARD'
+}
+
+export interface Address {
+  id: string;
+  name: string;
+  phone: string;
+  flatNo: string;
+  street: string;
+  landmark?: string;
+  pincode: string;
+  city: string;
+  state: string;
+  type: 'Home' | 'Work' | 'Other';
 }
 
 export interface UserProfile {
@@ -43,4 +91,8 @@ export interface UserProfile {
   photo: string;
   phone?: string;
   createdAt?: string;
+  addresses?: Address[];
+  role?: 'customer' | 'professional';
+  providedServices?: string[];
+  isOnline?: boolean;
 }

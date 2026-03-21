@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { CartProvider } from './CartContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import './index.css';
 
@@ -28,7 +29,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <CartProvider>
+        <App />
+      </CartProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

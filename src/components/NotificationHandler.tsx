@@ -46,8 +46,7 @@ export const NotificationHandler: React.FC = () => {
       console.log('Message received. ', payload);
       if (payload.notification) {
         const { title, body } = payload.notification;
-        // Show a custom toast or alert
-        alert(`Notification: ${title}\n${body}`);
+        console.log(`Notification: ${title}\n${body}`);
       }
     });
 

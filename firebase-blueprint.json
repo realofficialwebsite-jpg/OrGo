@@ -9,6 +9,24 @@
         "email": { "type": "string", "format": "email", "description": "Email address" },
         "photo": { "type": "string", "description": "URL to profile photo" },
         "phone": { "type": "string", "description": "Phone number" },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "phone": { "type": "string" },
+              "flatNo": { "type": "string" },
+              "street": { "type": "string" },
+              "landmark": { "type": "string" },
+              "pincode": { "type": "string" },
+              "city": { "type": "string" },
+              "state": { "type": "string" },
+              "type": { "type": "string", "enum": ["Home", "Work", "Other"] }
+            }
+          }
+        },
         "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
       },
       "required": ["name", "email", "createdAt"]

@@ -1,15 +1,115 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - name: string
+    //   - email: string
+    //   - role: string (optional: 'admin', 'client')
+    //   - createdAt: string (ISO)
+    //
+    // Collection: order
+    // Fields:
+    //   - userId: string (Owner UID)
+    //   - serviceName: string
+    //   - status: string
+    //   - price: number
+    //   - createdAt: string (ISO)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (request.auth.token.email in ["infogirish.in@gmail.com", "2025csgirish23269@poornima.edu.in"] && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isValidOrder(data) {
+      return data.userId is string &&
+             data.serviceName is string &&
+             data.serviceName.size() > 0 &&
+             data.status in ['Active', 'Completed', 'Cancelled'] &&
+             data.price is number &&
+             data.date is string &&
+             data.time is string &&
+             data.address is string &&
+             data.createdAt is string;
+    }
+
+    function hasRequiredOrderFields(data) {
+      return data.keys().hasAll(['userId', 'serviceName', 'status', 'price', 'date', 'time', 'address', 'createdAt']);
+    }
+
+    function isValidAddress(addr) {
+      return addr.id is string &&
+             addr.name is string && addr.name.size() > 0 &&
+             addr.phone is string && addr.phone.size() == 10 &&
+             addr.flatNo is string && addr.flatNo.size() > 0 &&
+             addr.street is string && addr.street.size() > 0 &&
+             addr.pincode is string && addr.pincode.size() == 6 &&
+             addr.city is string && addr.city.size() > 0 &&
+             addr.state is string && addr.state.size() > 0 &&
+             addr.type in ['Home', 'Work', 'Other'];
+    }
+
+    function isValidUser(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.email is string &&
+             (!('phone' in data) || data.phone is string) &&
+             (!('addresses' in data) || (data.addresses is list && data.addresses.size() <= 10)) &&
+             (!('role' in data) || data.role in ['admin', 'client']);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create, update: if request.auth != null && request.auth.uid == userId;
+      // Users can read their own profile. Admins can read all.
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create/update their own profile. 
+      // role cannot be set to admin by the user unless they are already admin.
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
+                      (!('role' in request.resource.data) || request.resource.data.role == 'client' || isAdmin());
+      
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
+                      (request.resource.data.role == resource.data.role || isAdmin());
     }
 
     match /order/{orderId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update: if request.auth != null && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      // Users can read their own orders. Admins can read all.
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      
+      // Users can create orders for themselves.
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Only owner or admin can update.
+      allow update: if isAuthenticated() && 
+                      (resource.data.userId == request.auth.uid || isAdmin()) &&
+                      request.resource.data.userId == resource.data.userId;
+                      
+      allow delete: if isAdmin();
     }
   }
 }
