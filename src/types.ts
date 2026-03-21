@@ -42,6 +42,13 @@ export interface Professional {
   image: string;
 }
 
+export interface InterestedWorker {
+  workerId: string;
+  name: string;
+  photo: string;
+  experience: string;
+}
+
 export interface Booking {
   id: string;
   userId: string;
@@ -50,9 +57,14 @@ export interface Booking {
   address: string;
   scheduledDate: string;
   scheduledTime: string;
+  isInstant: boolean;
   instructions: string;
   imageUrl?: string;
-  status: 'Active' | 'Completed' | 'Cancelled';
+  status: 'searching' | 'assigned' | 'completed' | 'cancelled';
+  interestedWorkers: InterestedWorker[];
+  assignedWorkerId?: string;
+  workerName?: string;
+  workerPhoto?: string;
   createdAt: any;
 }
 
@@ -67,8 +79,9 @@ export enum AppView {
   SERVICE_DETAILS = 'SERVICE_DETAILS',
   CART = 'CART',
   CHECKOUT = 'CHECKOUT',
-  PROFESSIONAL_REGISTRATION = 'PROFESSIONAL_REGISTRATION',
-  PROVIDER_DASHBOARD = 'PROVIDER_DASHBOARD'
+  WORKER_REGISTRATION = 'WORKER_REGISTRATION',
+  WORKER_APP = 'WORKER_APP',
+  CUSTOMER_APP = 'CUSTOMER_APP'
 }
 
 export interface Address {
@@ -94,5 +107,8 @@ export interface UserProfile {
   addresses?: Address[];
   role?: 'customer' | 'professional';
   providedServices?: string[];
+  skills?: string[];
   isOnline?: boolean;
+  age?: string;
+  experience?: string;
 }

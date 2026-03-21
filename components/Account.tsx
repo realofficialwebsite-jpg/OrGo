@@ -19,19 +19,21 @@ import {
 } from 'lucide-react';
 import { AppView, UserProfile } from '../src/types';
 import { motion, AnimatePresence } from 'motion/react';
-import { ProfessionalRegistration } from './ProfessionalRegistration';
+import { WorkerRegistration } from './WorkerRegistration';
 
 interface AccountProps {
   user: User;
   onLogout: () => void;
   navigate: (view: AppView) => void;
   onUpdateProfile: () => void;
+  setActiveMode?: (mode: 'customer' | 'worker') => void;
+  profile?: UserProfile | null;
 }
 
-export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUpdateProfile }) => {
+export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUpdateProfile, setActiveMode, profile: initialProfile }) => {
   const [loading, setLoading] = useState(true);
   const [activeSubView, setActiveSubView] = useState<string | null>(null);
-  const [profile, setProfile] = useState<UserProfile>({
+  const [profile, setProfile] = useState<UserProfile>(initialProfile || {
     uid: user.uid,
     name: user.displayName || '',
     email: user.email || '',
@@ -40,6 +42,11 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
   });
 
   const fetchProfile = async () => {
+    if (initialProfile) {
+      setProfile(initialProfile);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const docRef = doc(db, 'users', user.uid);
@@ -88,8 +95,8 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
     </motion.div>
   );
 
-  const renderProfessionalRegistration = () => (
-    <ProfessionalRegistration 
+  const renderWorkerRegistration = () => (
+    <WorkerRegistration 
       user={user} 
       profile={profile} 
       onComplete={() => {
@@ -127,13 +134,23 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
         {[
           { icon: MapPin, label: 'Saved Addresses', id: 'addresses' },
           { icon: Heart, label: 'Favorites', id: 'favorites' },
-          { icon: ShieldCheck, label: 'Join as a Professional', id: 'professional' },
+          profile.role === 'professional' ? (
+            { icon: UserIcon, label: 'Switch to Worker Mode', id: 'switch_worker' }
+          ) : (
+            { icon: ShieldCheck, label: 'Join as a Professional', id: 'professional' }
+          ),
           { icon: HelpCircle, label: 'Help & Support', id: 'help' },
           { icon: Info, label: 'About OrGo', id: 'about' },
         ].map((item) => (
           <button
             key={item.id}
-            onClick={() => setActiveSubView(item.id)}
+            onClick={() => {
+              if (item.id === 'switch_worker' && setActiveMode) {
+                setActiveMode('worker');
+                return;
+              }
+              setActiveSubView(item.id);
+            }}
             className="w-full p-4 flex items-center justify-between bg-white rounded-2xl border border-gray-100 hover:border-primary/20 transition-all"
           >
             <div className="flex items-center gap-4">
@@ -172,7 +189,7 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
           >
             {activeSubView === 'addresses' && renderSavedAddresses()}
             {activeSubView === 'favorites' && renderFavorites()}
-            {activeSubView === 'professional' && renderProfessionalRegistration()}
+            {activeSubView === 'professional' && renderWorkerRegistration()}
           </motion.div>
         )}
       </AnimatePresence>

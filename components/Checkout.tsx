@@ -21,6 +21,7 @@ import { auth, db, storage } from '../src/firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import CustomerRadar from './CustomerRadar';
 
 interface CheckoutProps {
   onClose: () => void;
@@ -38,6 +39,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   // Step 1: Address
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
@@ -49,6 +51,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
   const [locating, setLocating] = useState(false);
 
   // Step 2: Schedule
+  const [isInstant, setIsInstant] = useState(true);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
 
@@ -213,23 +216,22 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
         grandTotal,
         address: getSelectedAddressString(),
         addressId: selectedAddressId,
-        scheduledDate: selectedDate,
-        scheduledTime: selectedTime,
+        scheduledDate: isInstant ? 'Instant' : selectedDate,
+        scheduledTime: isInstant ? 'Now' : selectedTime,
+        isInstant,
         instructions,
         imageUrl,
-        status: 'Active',
+        status: 'searching',
+        interestedWorkers: [],
         createdAt: serverTimestamp()
       };
 
       console.log('Saving order to Firestore:', orderPayload);
-      await addDoc(collection(db, 'order'), orderPayload);
+      const docRef = await addDoc(collection(db, 'order'), orderPayload);
       console.log('Order saved successfully');
       
-      setSuccess(true);
-      setTimeout(() => {
-        clearCart();
-        setView(AppView.ORDERS);
-      }, 3000);
+      setCreatedOrderId(docRef.id);
+      setStep(5);
     } catch (error) {
       console.error('Firebase Error confirming booking:', error);
       alert(`Failed to place order: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -241,7 +243,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
 
   const nextStep = () => {
     if (step === 1 && !selectedAddressId) return alert('Please select an address');
-    if (step === 2 && (!selectedDate || !selectedTime)) return alert('Please select a date and time');
+    if (step === 2 && !isInstant && (!selectedDate || !selectedTime)) return alert('Please select a date and time');
     setStep(prev => prev + 1);
   };
 
@@ -570,31 +572,47 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Date</p>
-                  <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                    {generateDates().map((d) => (
-                      <button 
-                        key={d.full}
-                        onClick={() => setSelectedDate(d.full)}
-                        className={`flex flex-col items-center justify-center min-w-[80px] h-24 rounded-2xl border transition-all ${
-                          selectedDate === d.full 
-                            ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' 
-                            : 'bg-white border-gray-100 text-gray-600'
-                        }`}
-                      >
-                        <span className="text-[10px] font-bold uppercase mb-1">{d.day}</span>
-                        <span className="text-xl font-bold">{d.date}</span>
-                        <span className="text-[10px] font-medium">{d.month}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+                <button 
+                  onClick={() => { setIsInstant(true); nextStep(); }}
+                  className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all ${isInstant ? 'bg-white shadow-sm text-primary' : 'text-gray-500'}`}
+                >
+                  Get it Now (Instant)
+                </button>
+                <button 
+                  onClick={() => setIsInstant(false)}
+                  className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all ${!isInstant ? 'bg-white shadow-sm text-primary' : 'text-gray-500'}`}
+                >
+                  Schedule for Later
+                </button>
+              </div>
 
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Time Slot</p>
-                  <div className="grid grid-cols-3 gap-3">
+              {!isInstant && (
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Date</p>
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                      {generateDates().map((d) => (
+                        <button 
+                          key={d.full}
+                          onClick={() => setSelectedDate(d.full)}
+                          className={`flex flex-col items-center justify-center min-w-[80px] h-24 rounded-2xl border transition-all ${
+                            selectedDate === d.full 
+                              ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' 
+                              : 'bg-white border-gray-100 text-gray-600'
+                          }`}
+                        >
+                          <span className="text-[10px] font-bold uppercase mb-1">{d.day}</span>
+                          <span className="text-xl font-bold">{d.date}</span>
+                          <span className="text-[10px] font-medium">{d.month}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Time Slot</p>
+                    <div className="grid grid-cols-3 gap-3">
                     {TIME_SLOTS.map((t) => (
                       <button 
                         key={t}
@@ -611,6 +629,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
                   </div>
                 </div>
               </div>
+              )}
             </motion.div>
           )}
 
@@ -744,11 +763,32 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
               </div>
             </motion.div>
           )}
+
+          {step === 5 && createdOrderId && (
+            <motion.div 
+              key="step5"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="h-full"
+            >
+              <CustomerRadar 
+                orderId={createdOrderId} 
+                onWorkerSelected={() => {
+                  setSuccess(true);
+                  setTimeout(() => {
+                    clearCart();
+                    setView(AppView.ORDERS);
+                  }, 3000);
+                }} 
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
       {/* Sticky Bottom Button */}
-      {!showAddressForm && (
+      {!showAddressForm && step < 5 && (
         <div className="p-5 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
           <button 
             onClick={step === 4 ? handleConfirmBooking : nextStep}

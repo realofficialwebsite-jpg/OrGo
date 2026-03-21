@@ -636,18 +636,17 @@ const CATEGORIES: Category[] = [
   },
 ];
 
+import { CustomerApp } from '../components/CustomerApp';
+import { WorkerApp } from '../components/WorkerApp';
+import { WorkerRegistration } from '../components/WorkerRegistration';
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<AppView>(AppView.HOME);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
-  const [selectedService, setSelectedService] = useState<any | null>(null); 
-  const { cart, addToCart, removeFromCart, getItemQuantity, cartTotal, clearCart } = useCart();
+  const [activeMode, setActiveMode] = useState<'customer' | 'worker'>('customer');
   const [orders, setOrders] = useState<Booking[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('All');
   const [orderToCancel, setOrderToCancel] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
   
@@ -656,7 +655,6 @@ const App: React.FC = () => {
       if (currentUser && !currentUser.emailVerified) {
         setUser(null);
         setLoading(false);
-        setView(AppView.AUTH);
         return;
       }
       setUser(currentUser);
@@ -664,23 +662,22 @@ const App: React.FC = () => {
         const docRef = doc(db, 'users', currentUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
+          const profileData = docSnap.data() as UserProfile;
+          setProfile(profileData);
         }
       } else {
         setProfile(null);
       }
       setLoading(false);
-      if (!currentUser) setView(AppView.AUTH);
-      else if (view === AppView.AUTH) setView(AppView.HOME);
     });
     return () => unsubscribe();
-  }, [view]);
+  }, []);
 
   useEffect(() => {
-    if (user && view === AppView.ORDERS) {
+    if (user) {
       fetchOrders();
     }
-  }, [user, view]);
+  }, [user]);
 
   const fetchOrders = async () => {
     if (!user) return;
@@ -699,11 +696,19 @@ const App: React.FC = () => {
           address: data.address,
           scheduledDate: data.scheduledDate,
           scheduledTime: data.scheduledTime,
+          isInstant: data.isInstant || false,
           instructions: data.instructions,
           imageUrl: data.imageUrl,
           status: data.status,
+          interestedWorkers: data.interestedWorkers || [],
+          assignedWorkerId: data.assignedWorkerId,
           createdAt: data.createdAt
         });
+      });
+      fetchedOrders.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return timeB - timeA;
       });
       setOrders(fetchedOrders);
     } catch (error) {
@@ -713,19 +718,15 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCancelOrder = async () => {
-    if (!orderToCancel || !user) return;
+  const handleCancelOrder = async (order: Booking) => {
+    if (!user) return;
     setCancelling(true);
     try {
-      const orderRef = doc(db, 'order', orderToCancel.id);
-      await updateDoc(orderRef, { status: 'Cancelled' });
-      
-      // Update local state
-      setOrders(prev => prev.map(o => o.id === orderToCancel.id ? { ...o, status: 'Cancelled' } : o));
-      setOrderToCancel(null);
+      const orderRef = doc(db, 'order', order.id);
+      await updateDoc(orderRef, { status: 'cancelled' });
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled' } : o));
     } catch (error) {
-      console.error("Error cancelling order:", error);
-      handleFirestoreError(error, OperationType.UPDATE, `order/${orderToCancel.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `order/${order.id}`);
     } finally {
       setCancelling(false);
     }
@@ -740,703 +741,53 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCategoryClick = (category: Category) => {
-    setSelectedCategory(category);
-    if (category.subCategories.length === 1) {
-      setSelectedSubCategory(category.subCategories[0]);
-      setView(AppView.SERVICE_DETAILS);
-    } else {
-      setView(AppView.SUB_CATEGORY);
-    }
-  };
-
-  const handleSubCategoryClick = (subCategory: SubCategory) => {
-    setSelectedSubCategory(subCategory);
-    setView(AppView.SERVICE_DETAILS);
-  };
-
-  const handleViewCart = () => {
-    setView(AppView.CART);
-  };
-
-  const handleBookingComplete = () => {
-    setView(AppView.TRACKING);
-    setSelectedService(null);
-    clearCart(); // Clear cart after booking
-    fetchOrders(); // Refresh orders after new booking
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    setUser(null);
-    setView(AppView.AUTH);
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center text-red-600 font-bold">Loading OrGo...</div>;
 
-  if (!user) return <Auth onLoginSuccess={() => setView(AppView.HOME)} />;
+  if (!user) return <Auth onLoginSuccess={() => {}} />;
 
-  // --- Views ---
-
-  const getIcon = (iconName: string, color?: string) => {
-    const iconProps = { 
-      size: 24, 
-      className: color ? `text-${color}-500` : 'text-primary',
-      strokeWidth: 2.5
-    };
-
-    switch (iconName) {
-      case 'droplet': return <Droplet {...iconProps} />;
-      case 'wind': return <Wind {...iconProps} />;
-      case 'brush': return <Brush {...iconProps} />;
-      case 'zap': return <Zap {...iconProps} />;
-      case 'wrench': return <Wrench {...iconProps} />;
-      case 'waves': return <Waves {...iconProps} />;
-      case 'refrigerator': return <Refrigerator {...iconProps} />;
-      case 'tv': return <Tv {...iconProps} />;
-      case 'microwave': return <Microwave {...iconProps} />;
-      case 'flame': return <Flame {...iconProps} />;
-      case 'laptop': return <Laptop {...iconProps} />;
-      case 'flower': return <Flower {...iconProps} />;
-      case 'car': return <Car {...iconProps} />;
-      case 'bike': return <Bike {...iconProps} />;
-      case 'bug': return <Bug {...iconProps} />;
-      case 'hammer': return <Hammer {...iconProps} />;
-      case 'shield': return <Shield {...iconProps} />;
-      case 'package': return <Package {...iconProps} />;
-      case 'construction': return <Construction {...iconProps} />;
-      case 'home': return <Home {...iconProps} />;
-      case 'dog': return <Dog {...iconProps} />;
-      case 'layout': return <Layout {...iconProps} />;
-      case 'sun': return <Sun {...iconProps} />;
-      case 'cpu': return <Cpu {...iconProps} />;
-      case 'activity': return <Activity {...iconProps} />;
-      case 'scissors': return <Scissors {...iconProps} />;
-      default: return <Wrench {...iconProps} />;
-    }
-  };
-
-  const renderHome = () => {
-    const categories = ['All', 'Home', 'Appliances', 'Vehicle', 'Outdoor'];
-    
-    const filteredServices = activeCategory === 'All' 
-      ? CATEGORIES 
-      : CATEGORIES.filter(s => s.category === activeCategory);
-
+  // If professional but no skills, they might need registration (or we can just let them in)
+  // The user requested a specific registration flow.
+  if (profile?.role === 'professional' && (!profile.skills || profile.skills.length === 0)) {
     return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="pb-32 bg-white"
-      >
-        {/* Location Header */}
-        <div className="px-5 pt-6 pb-4 bg-white sticky top-0 z-30 border-b border-gray-50">
-          <div className="flex items-center justify-between mb-5">
-            <div 
-              onClick={() => alert('Location Selection')}
-              className="flex flex-col cursor-pointer group"
-            >
-              <div className="flex items-center gap-1.5">
-                <MapPin size={16} className="text-primary" strokeWidth={2.5} />
-                <span className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors">Home</span>
-                <ChevronRight size={14} className="text-gray-400" />
-              </div>
-              <p className="text-xs text-gray-500 font-medium truncate max-w-[220px] mt-0.5">B-12, Vaishali Nagar, Jaipur, Rajasthan 302021</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="relative p-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                <Bell size={20} className="text-gray-700" strokeWidth={2.5} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-              </button>
-              <button 
-                onClick={() => setView(AppView.ACCOUNT)}
-                className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 hover:bg-gray-100 transition-colors"
-              >
-                {user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <UserIcon size={20} className="text-gray-500" strokeWidth={2.5} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar - UC Style */}
-          <div className="relative group">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors">
-              <Search size={18} strokeWidth={2.5} />
-            </div>
-            <input 
-              type="text" 
-              placeholder="Search for 'AC Repair'..."
-              className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:bg-white focus:border-primary transition-all shadow-inner-soft"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-8 pt-6">
-          {/* Hero Banner - Gradient Style */}
-          <div className="px-5">
-            <motion.div 
-              initial={{ y: 10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="relative h-48 rounded-[32px] overflow-hidden group shadow-depth"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-dark to-red-900"></div>
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-              <div className="relative h-full flex flex-col justify-center px-8">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest mb-4 w-fit border border-white/10">
-                  <Sparkles size={12} /> Special Offer
-                </div>
-                <h2 className="text-3xl font-bold text-white font-display leading-tight mb-2">Up to 50% OFF<br/>on First Booking</h2>
-                <p className="text-white/70 text-sm font-medium">Professional services at your doorstep</p>
-              </div>
-              <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mb-16 blur-3xl"></div>
-            </motion.div>
-          </div>
-
-          {/* Categories - Horizontal Scroll */}
-          <div className="mt-10">
-            <div className="px-5 flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900 font-display">Service Categories</h3>
-              <button className="text-primary text-sm font-bold hover:underline">See all</button>
-            </div>
-            <div className="flex gap-4 overflow-x-auto no-scrollbar px-5 pb-4">
-              {categories.map((cat) => (
-                <button 
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all shadow-soft active:scale-95 whitespace-nowrap border ${
-                    activeCategory === cat 
-                      ? 'bg-primary text-white border-primary shadow-primary/20' 
-                      : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Services Grid - Modern Layout */}
-          <div className="px-5">
-            <div className="grid grid-cols-2 gap-4">
-              <AnimatePresence mode="popLayout">
-                {filteredServices.map((service) => (
-                  <motion.div 
-                    key={service.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    whileHover={{ y: -5 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCategoryClick(service)}
-                    className="group relative bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-soft cursor-pointer"
-                  >
-                    <div className="aspect-[4/5] relative">
-                      <img 
-                        src={service.image} 
-                        alt={service.name} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                      
-                      {service.tag && (
-                        <div className={`absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-${service.color}-500 uppercase tracking-wider shadow-sm`}>
-                          {service.tag}
-                        </div>
-                      )}
-                      
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <h4 className="text-white font-bold text-lg font-display mb-0.5">{service.name}</h4>
-                        <div className="flex items-center justify-between">
-                          <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">Starts at ₹{service.priceStart}</p>
-                          <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20">
-                            <ChevronRight size={16} strokeWidth={3} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Trust Badges */}
-          <div className="bg-gray-50 py-10 px-5 grid grid-cols-3 gap-4 border-y border-gray-100">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm border border-gray-100">
-                <ShieldCheck size={24} strokeWidth={2.5} />
-              </div>
-              <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">UC Safe<br/>Guarantee</span>
-            </div>
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm border border-gray-100">
-                <Star size={24} strokeWidth={2.5} />
-              </div>
-              <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">4.8 Average<br/>Rating</span>
-            </div>
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm border border-gray-100">
-                <Clock size={24} strokeWidth={2.5} />
-              </div>
-              <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">On-Time<br/>Service</span>
-            </div>
-          </div>
-
-          {/* Refer & Earn - Gradient Style */}
-          <div className="px-5 pb-8">
-            <div className="bg-gradient-to-r from-red-600 to-primary rounded-[32px] p-7 flex items-center justify-between shadow-lg shadow-primary/20 relative overflow-hidden">
-              <div className="relative z-10 max-w-[65%]">
-                <h4 className="text-white font-bold text-lg mb-1 font-display">Refer & Earn ₹100</h4>
-                <p className="text-white/80 text-xs font-medium">Get rewards for every friend you invite to OrGo</p>
-              </div>
-              <div className="relative z-10 w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white border border-white/20">
-                <Copy size={24} strokeWidth={2.5} />
-              </div>
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-            </div>
-          </div>
-
-          {/* Trending Services - Horizontal Scroll */}
-          <div className="px-5 pb-10">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-xl font-bold text-gray-900 font-display">Trending Services</h3>
-              <button className="text-primary text-sm font-bold hover:underline">View all</button>
-            </div>
-            <div className="flex gap-5 overflow-x-auto no-scrollbar pb-4 -mx-5 px-5">
-              {CATEGORIES.slice(0, 5).map((s) => (
-                <motion.div 
-                  key={s.id + '-trend'} 
-                  whileHover={{ y: -5 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleCategoryClick(s)}
-                  className="min-w-[200px] bg-white rounded-[32px] border border-gray-100 shadow-soft overflow-hidden group cursor-pointer active:scale-95 transition-all"
-                >
-                    <div className="h-32 bg-gray-100 relative">
-                      <img src={s.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                      {s.tag && (
-                        <div className={`absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-bold text-${s.color}-500 uppercase tracking-wider shadow-sm`}>
-                          {s.tag}
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-5">
-                      <p className="text-sm font-bold text-gray-900 mb-1 font-display">{s.name}</p>
-                      <p className={`text-xs text-${s.color}-500 font-bold`}>Starts at ₹{s.priceStart}</p>
-                    </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </motion.div>
+      <WorkerRegistration 
+        user={user} 
+        profile={profile} 
+        onComplete={fetchProfile} 
+        onBack={() => signOut(auth)} 
+        navigate={() => {}} 
+      />
     );
-  };
-
-  const renderSubCategory = () => {
-    if (!selectedCategory) return null;
-
-    return (
-      <motion.div 
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        className="min-h-screen bg-white pb-32"
-      >
-        <div className="px-5 pt-6 pb-4 bg-white sticky top-0 z-30 border-b border-gray-50 flex items-center gap-4">
-          <button onClick={() => setView(AppView.HOME)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
-            <ArrowLeft size={24} className="text-gray-900" />
-          </button>
-          <h2 className="text-xl font-bold text-gray-900 font-display">{selectedCategory.name}</h2>
-        </div>
-
-        <div className="p-5 grid grid-cols-3 gap-4">
-          {selectedCategory.subCategories.map((sub) => (
-            <motion.div
-              key={sub.id}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleSubCategoryClick(sub)}
-              className="flex flex-col items-center gap-3"
-            >
-              <div className="w-full aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 flex items-center justify-center">
-                {sub.image ? (
-                  <img src={sub.image} alt={sub.title} className="w-full h-full object-cover" />
-                ) : (
-                  getIcon(sub.icon, selectedCategory.color)
-                )}
-              </div>
-              <span className="text-[11px] font-bold text-gray-900 text-center leading-tight">{sub.title}</span>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-    );
-  };
-
-  const renderServiceDetails = () => {
-    if (!selectedSubCategory) return null;
-
-    return (
-      <motion.div 
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        className="min-h-screen bg-gray-50 pb-40"
-      >
-        {/* Header */}
-        <div className="bg-white px-5 pt-6 pb-4 sticky top-0 z-30 border-b border-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => {
-                if (selectedCategory && selectedCategory.subCategories.length === 1) {
-                  setView(AppView.HOME);
-                } else {
-                  setView(AppView.SUB_CATEGORY);
-                }
-              }} 
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ArrowLeft size={24} className="text-gray-900" />
-            </button>
-            <h2 className="text-xl font-bold text-gray-900 font-display">{selectedSubCategory.title}</h2>
-          </div>
-          <button className="p-2 bg-gray-50 rounded-full">
-            <Search size={20} className="text-gray-600" />
-          </button>
-        </div>
-
-        {/* Trust Banner */}
-        <div className="bg-white px-5 py-4 border-b border-gray-100 flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-            <ShieldCheck size={24} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-gray-900">UC Safe Guarantee</p>
-            <p className="text-[10px] text-gray-500 font-medium">Professional & verified experts only</p>
-          </div>
-        </div>
-
-        {/* Service Items */}
-        <div className="p-5 space-y-4">
-          {selectedSubCategory.items.map((item) => (
-            <div key={item.id} className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm flex gap-4">
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-900 mb-1 leading-tight">{item.title}</h3>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-bold text-gray-700">
-                    <Star size={10} className="fill-gray-700" /> {item.rating}
-                  </div>
-                  <span className="text-[10px] text-gray-400 font-medium">{item.reviews} reviews</span>
-                </div>
-                <p className="text-sm font-bold text-gray-900 mb-4">₹{item.price}</p>
-                <ul className="space-y-2">
-                  {item.descriptionPoints.map((point, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-[11px] text-gray-500 font-medium">
-                      <div className="w-1 h-1 rounded-full bg-gray-300 mt-1.5 shrink-0" />
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="w-28 flex flex-col items-center gap-3">
-                <div className="w-28 h-28 rounded-2xl overflow-hidden border border-gray-100">
-                  <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                </div>
-                
-                {getItemQuantity(item.id) > 0 ? (
-                  <div className="flex items-center justify-between w-full bg-primary/10 rounded-xl p-1 border border-primary/20">
-                    <button 
-                      onClick={() => removeFromCart(item.id)}
-                      className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-primary shadow-sm active:scale-90 transition-transform"
-                    >
-                      <Minus size={16} strokeWidth={3} />
-                    </button>
-                    <span className="text-sm font-bold text-primary">{getItemQuantity(item.id)}</span>
-                    <button 
-                      onClick={() => addToCart(item)}
-                      className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-primary shadow-sm active:scale-90 transition-transform"
-                    >
-                      <Plus size={16} strokeWidth={3} />
-                    </button>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => addToCart(item)}
-                    className="w-full py-2.5 bg-white border border-gray-200 rounded-xl text-primary text-xs font-bold shadow-sm hover:border-primary transition-colors active:scale-95"
-                  >
-                    ADD
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-    );
-  };
-
-  const renderCart = () => (
-    <Cart 
-      onClose={() => setView(AppView.SUB_CATEGORY)} 
-      setView={setView} 
-    />
-  );
-
-  const renderCheckout = () => (
-    <Checkout 
-      onClose={() => setView(AppView.CART)} 
-      setView={setView} 
-    />
-  );
-
-  const renderOrders = () => (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="pb-32 bg-gray-50 min-h-screen"
-    >
-      <div className="bg-white px-5 pt-6 pb-5 sticky top-0 z-20 border-b border-gray-100">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900 font-display">My Bookings</h2>
-          <button 
-            onClick={fetchOrders} 
-            disabled={loadingOrders} 
-            className="w-10 h-10 flex items-center justify-center bg-gray-50 rounded-xl text-primary active:scale-90 transition-transform"
-          >
-            <RefreshCw size={18} className={loadingOrders ? "animate-spin" : ""} strokeWidth={2.5} />
-          </button>
-        </div>
-      </div>
-      
-      <div className="p-5 space-y-5">
-        {orders.length === 0 && !loadingOrders ? (
-          <div className="text-center py-24">
-            <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-100">
-              <ClipboardList size={40} className="text-gray-200" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2 font-display">No bookings yet</h3>
-            <p className="text-gray-500 text-sm font-medium mb-8">You haven't booked any services yet.</p>
-            <button onClick={() => setView(AppView.HOME)} className="btn-primary px-8">Book a service</button>
-          </div>
-        ) : (
-          orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 group active:scale-[0.98] transition-all">
-              <div className="flex justify-between items-start mb-4">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-gray-900 font-display">
-                    {order.cartItems?.[0]?.title || 'Home Service'} 
-                    {order.cartItems && order.cartItems.length > 1 && ` +${order.cartItems.length - 1} more`}
-                  </h3>
-                  <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
-                    <Clock size={12} strokeWidth={2.5} />
-                    <span>{order.scheduledDate} • {order.scheduledTime}</span>
-                  </div>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${order.status === 'Active' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-50 text-gray-500 border border-gray-100'}`}>
-                  {order.status}
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 text-xs font-medium text-gray-500 mb-5 bg-gray-50 p-3 rounded-xl">
-                <MapPin size={14} className="text-gray-400 shrink-0" strokeWidth={2.5} />
-                <span className="truncate">{order.address}</span>
-              </div>
-              <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Paid</span>
-                  <span className="text-lg font-bold text-gray-900 font-display">₹{order.grandTotal}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  {order.status === 'Active' && (
-                    <button 
-                      onClick={() => setOrderToCancel(order)}
-                      className="text-red-500 text-sm font-bold hover:underline"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => setView(AppView.TRACKING)}
-                    className="text-primary text-sm font-bold flex items-center gap-1 hover:underline"
-                  >
-                    View Details <ChevronRight size={14} strokeWidth={2.5} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Cancel Confirmation Modal */}
-      <AnimatePresence>
-        {orderToCancel && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setOrderToCancel(null)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ y: '100%', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0 }}
-              className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl"
-            >
-              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <Trash2 size={36} strokeWidth={2.5} />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 text-center mb-2 font-display">Cancel Booking?</h3>
-              <p className="text-gray-500 text-center text-sm font-medium mb-8 leading-relaxed">
-                Are you sure you want to cancel this booking? This action cannot be undone.
-              </p>
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={handleCancelOrder}
-                  disabled={cancelling}
-                  className="w-full py-4 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-500/20 hover:bg-red-600 transition-colors disabled:opacity-50"
-                >
-                  {cancelling ? 'Cancelling...' : 'Yes, Cancel Booking'}
-                </button>
-                <button 
-                  onClick={() => setOrderToCancel(null)}
-                  className="w-full py-4 bg-gray-50 text-gray-500 font-bold rounded-2xl hover:bg-gray-100 transition-colors"
-                >
-                  Keep Booking
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-
-  const renderWallet = () => (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="pb-32 bg-gray-50 min-h-screen"
-    >
-      <div className="bg-primary p-10 text-white rounded-b-[40px] mb-8 shadow-lg shadow-primary/20">
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest opacity-70 mb-2">UC Wallet Balance</p>
-            <h2 className="text-4xl font-bold font-display">₹1,240</h2>
-          </div>
-          <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10">
-            <Wallet size={24} strokeWidth={2.5} />
-          </div>
-        </div>
-        <div className="flex gap-4">
-          <button className="flex-1 bg-white text-primary py-3.5 rounded-2xl font-bold text-sm shadow-sm active:scale-95 transition-transform">Add Money</button>
-          <button className="flex-1 bg-white/10 backdrop-blur-md py-3.5 rounded-2xl font-bold text-sm border border-white/20 active:scale-95 transition-transform">View History</button>
-        </div>
-      </div>
-
-      <div className="px-5 space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-gray-900 font-display">Available Offers</h3>
-          <button className="text-primary text-sm font-bold hover:underline">View all</button>
-        </div>
-        {[
-          { title: '50% OFF on first booking', code: 'UCNEW50', desc: 'Valid on all professional services', color: 'bg-red-50 border-red-100' },
-          { title: 'Flat ₹100 OFF on AC Repair', code: 'AC100', desc: 'Valid on orders above ₹499', color: 'bg-emerald-50 border-emerald-100' },
-        ].map((offer) => (
-          <div key={offer.code} className={`p-5 rounded-3xl border shadow-sm ${offer.color}`}>
-            <div className="flex justify-between items-start mb-2">
-              <h4 className="font-bold text-gray-900 text-lg font-display">{offer.title}</h4>
-              <Sparkles size={20} className="text-primary opacity-30" />
-            </div>
-            <p className="text-xs text-gray-500 font-medium mb-5">{offer.desc}</p>
-            <div className="flex items-center justify-between bg-white/60 backdrop-blur-sm p-3 rounded-2xl border border-dashed border-gray-200">
-              <code className="font-bold text-primary text-sm tracking-wider">{offer.code}</code>
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(offer.code);
-                  alert('Code copied!');
-                }}
-                className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-primary transition-colors"
-              >
-                <Copy size={12} strokeWidth={2.5} /> Copy
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
       <NotificationHandler />
-      <div className="bg-white min-h-screen">
-        <AnimatePresence mode="wait">
-          {view === AppView.HOME && renderHome()}
-          {view === AppView.SUB_CATEGORY && renderSubCategory()}
-          {view === AppView.SERVICE_DETAILS && renderServiceDetails()}
-          {view === AppView.ORDERS && renderOrders()}
-          {view === AppView.CART && renderCart()}
-          {view === AppView.CHECKOUT && renderCheckout()}
-          {view === AppView.TRACKING && <Tracking key="tracking" onBack={() => setView(AppView.ORDERS)} />}
-          {view === AppView.PROVIDER_DASHBOARD && profile && <ProviderDashboard user={user!} profile={profile} />}
-          {view === AppView.ACCOUNT && user && (
-              <Account key="account" user={user} onLogout={handleLogout} navigate={setView} onUpdateProfile={fetchProfile} />
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Sticky Cart Bar */}
-      <AnimatePresence>
-        {cart.length > 0 && (view === AppView.SERVICE_DETAILS || view === AppView.SUB_CATEGORY) && (
-          <motion.div 
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            className="fixed bottom-20 left-0 right-0 max-w-md mx-auto px-5 z-50"
-          >
-            <div className="bg-primary rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-primary/30">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white border border-white/20">
-                  <CheckCircle2 size={24} />
-                </div>
-                <div>
-                  <p className="text-white font-bold text-sm">₹{cartTotal}</p>
-                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">{cart.length} items added</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleViewCart}
-                className="px-6 py-2.5 bg-white text-primary font-bold rounded-xl text-sm shadow-sm active:scale-95 transition-transform"
-              >
-                View Cart
-              </button>
-            </div>
-          </motion.div>
+      <AnimatePresence mode="wait">
+        {activeMode === 'worker' && profile?.role === 'professional' ? (
+          <WorkerApp 
+            key="worker-app"
+            user={user} 
+            profile={profile} 
+            onSwitchMode={() => setActiveMode('customer')} 
+            onLogout={() => signOut(auth)}
+            fetchProfile={fetchProfile}
+          />
+        ) : (
+          <CustomerApp 
+            key="customer-app"
+            user={user}
+            profile={profile}
+            onLogout={() => signOut(auth)}
+            fetchProfile={fetchProfile}
+            orders={orders}
+            loadingOrders={loadingOrders}
+            fetchOrders={fetchOrders}
+            handleCancelOrder={handleCancelOrder}
+            cancelling={cancelling}
+            setActiveMode={setActiveMode}
+          />
         )}
       </AnimatePresence>
-
-      {/* Bottom Navigation - UC Style */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-xl border-t border-gray-100 flex justify-around py-3 pb-safe z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
-        {[
-          { id: AppView.HOME, icon: Home, label: 'Home' },
-          { id: AppView.ORDERS, icon: ClipboardList, label: 'Bookings' },
-          { id: AppView.TRACKING, icon: MapPin, label: 'Track' },
-          { id: AppView.ACCOUNT, icon: UserIcon, label: 'Profile' },
-          ...(profile?.role === 'professional' ? [{ id: AppView.PROVIDER_DASHBOARD, icon: Wrench, label: 'Dashboard' }] : []),
-        ].map((item) => (
-          <button 
-            key={item.id}
-            onClick={() => setView(item.id)} 
-            className={`flex flex-col items-center gap-1.5 py-1 flex-1 transition-all active:scale-90 ${view === item.id ? 'text-primary' : 'text-gray-400'}`}
-          >
-            <item.icon size={22} strokeWidth={view === item.id ? 2.5 : 2} />
-            <span className={`text-[9px] font-bold uppercase tracking-[0.1em] ${view === item.id ? 'opacity-100' : 'opacity-60'}`}>{item.label}</span>
-          </button>
-        ))}
-      </div>
     </div>
   );
 };
