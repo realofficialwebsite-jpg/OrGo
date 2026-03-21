@@ -1,4 +1,9 @@
 {
-    "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-      "cleanUrls": true
-      }
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/.well-known/assetlinks.json",
+      "destination": "/.well-known/assetlinks.json"
+    }
+  ]
+}
