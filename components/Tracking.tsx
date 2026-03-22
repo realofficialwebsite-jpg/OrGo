@@ -152,7 +152,7 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
           <div className="flex items-center gap-5">
             <div className="relative">
               <img 
-                src={isWorker ? (customerData?.photo || "https://picsum.photos/seed/customer/200") : (workerData?.photo || "https://picsum.photos/seed/pro/200")} 
+                src={isWorker ? (customerData?.photo || "https://picsum.photos/seed/customer/200") : (order.workerPhoto || "https://picsum.photos/seed/pro/200")} 
                 alt="Profile" 
                 className="w-16 h-16 rounded-2xl object-cover shadow-sm border border-gray-100" 
                 referrerPolicy="no-referrer"
@@ -161,7 +161,7 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
             </div>
             <div>
               <h2 className="text-xl font-display font-bold text-gray-900">
-                {isWorker ? (customerData?.name || 'Customer') : (workerData?.name || 'Professional')}
+                {isWorker ? (order.customerName || 'Client') : (order.workerName || 'Professional')}
               </h2>
               <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mt-1.5">
                 {isWorker ? (
