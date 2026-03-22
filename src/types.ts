@@ -43,11 +43,10 @@ export interface Professional {
 }
 
 export interface InterestedWorker {
-  uid: string;
-  workerId?: string;
+  workerId: string;
   name: string;
   photo: string;
-  experience?: string;
+  experience: string;
   phone?: string;
   rating?: number;
   totalReviews?: number;
@@ -66,7 +65,6 @@ export interface Booking {
   imageUrl?: string;
   status: 'searching' | 'assigned' | 'on_the_way' | 'completed' | 'cancelled';
   interestedWorkers: InterestedWorker[];
-  rejectedBy?: string[];
   assignedWorkerId?: string;
   workerName?: string;
   workerPhoto?: string;

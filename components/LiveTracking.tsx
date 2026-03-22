@@ -91,7 +91,6 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) =
 
   if (!order) return <div className='p-10 text-center'>Loading Order Details...</div>;
   if (!order.customerLocation) return <div className='p-10 text-center'>Waiting for location data...</div>;
-  const customerLoc = order.customerLocation;
 
   const targetPhone = userRole === 'customer' ? order.workerPhone : order.customerPhone;
   const msg = userRole === 'customer' ? "Hello, I'm waiting for my service." : "Hello, I'm on my way for your service.";
@@ -105,13 +104,13 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) =
   return (
     <div className="space-y-4">
       <div className="h-[400px] w-full rounded-3xl overflow-hidden shadow-lg border border-gray-100">
-        <MapContainer center={[customerLoc.lat, customerLoc.lng]} zoom={13} className="h-full w-full">
+        <MapContainer center={[order.customerLocation.lat, order.customerLocation.lng]} zoom={13} className="h-full w-full">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <Marker position={[customerLoc.lat, customerLoc.lng]} icon={redIcon} />
+          <Marker position={[order.customerLocation.lat, order.customerLocation.lng]} icon={redIcon} />
           {workerLocation && (
             <>
               <Marker position={[workerLocation.lat, workerLocation.lng]} icon={blueIcon} />
-              <FitBounds customerLocation={customerLoc} workerLocation={workerLocation} />
+              <FitBounds customerLocation={order.customerLocation} workerLocation={workerLocation} />
             </>
           )}
         </MapContainer>
@@ -120,30 +119,28 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) =
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <h3 className="text-xl font-bold text-gray-900 mb-2">
           {distance !== null && distance < 0.1 
-            ? 'Professional has Arrived!' 
-            : `Professional arriving in ${eta} mins`}
+            ? 'Professional has arrived!' 
+            : (userRole === 'customer' ? `Professional arriving in ~${eta} mins` : `Customer is ~${eta} mins away`)}
         </h3>
         
-        <div className="flex flex-col gap-4 mt-6">
+        <div className="flex gap-4 mt-6">
           {userRole === 'worker' && (
             <button 
-              onClick={() => window.open('https://www.google.com/maps/dir/?api=1&destination=' + customerLoc.lat + ',' + customerLoc.lng + '&travelmode=driving', '_blank')}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-lg active:scale-[0.98] transition-all"
+              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${order.customerLocation?.lat},${order.customerLocation?.lng}`, '_blank')}
+              className="flex-1 flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all"
             >
-              <Navigation size={20} /> Start Google Maps Navigation
+              <Navigation size={18} /> Navigate
             </button>
           )}
-          <div className="flex gap-4 w-full">
-            <a href={`tel:+91${targetPhone}`} className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all">
-              <Phone size={18} /> Call
-            </a>
-            <button 
-              onClick={handleWhatsApp}
-              className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all"
-            >
-              <MessageSquare size={18} /> WhatsApp
-            </button>
-          </div>
+          <a href={`tel:+91${targetPhone}`} className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all">
+            <Phone size={18} /> Call
+          </a>
+          <button 
+            onClick={handleWhatsApp}
+            className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all"
+          >
+            <MessageSquare size={18} /> WhatsApp
+          </button>
         </div>
       </div>
     </div>

@@ -766,7 +766,7 @@ const App: React.FC = () => {
       <NotificationHandler />
       <AnimatePresence mode="wait">
         {activeMode === 'worker' && profile?.role === 'professional' ? (
-          <ProviderDashboard 
+          <WorkerApp 
             key="worker-app"
             user={user} 
             profile={profile} 
