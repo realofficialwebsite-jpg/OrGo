@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "app.vercel.or_go_murex.twa",
-        "sha256_cert_fingerprints": ["DF:42:C2:D1:01:07:3A:94:FF:20:4A:3B:2C:17:C1:68:08:CC:E7:09:F9:E5:9B:A1:EF:91:D0:BD:C4:94:5C:AB"]
-      }
-    }]

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 import { Auth } from '../components/Auth';
 import { Tracking } from '../components/Tracking';
@@ -674,17 +674,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchOrders();
-    }
-  }, [user]);
-
-  const fetchOrders = async () => {
     if (!user) return;
     setLoadingOrders(true);
-    try {
-      const q = query(collection(db, 'order'), where('userId', '==', user.uid));
-      const querySnapshot = await getDocs(q);
+    const q = query(collection(db, 'order'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedOrders: Booking[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -702,7 +695,10 @@ const App: React.FC = () => {
           status: data.status,
           interestedWorkers: data.interestedWorkers || [],
           assignedWorkerId: data.assignedWorkerId,
-          createdAt: data.createdAt
+          workerName: data.workerName,
+          workerPhoto: data.workerPhoto,
+          createdAt: data.createdAt,
+          rating: data.rating
         });
       });
       fetchedOrders.sort((a, b) => {
@@ -711,11 +707,17 @@ const App: React.FC = () => {
         return timeB - timeA;
       });
       setOrders(fetchedOrders);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'order');
-    } finally {
       setLoadingOrders(false);
-    }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'order');
+      setLoadingOrders(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const fetchOrders = async () => {
+    // Now handled by onSnapshot in useEffect
   };
 
   const handleCancelOrder = async (order: Booking) => {

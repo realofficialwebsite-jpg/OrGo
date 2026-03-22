@@ -66,6 +66,9 @@ export interface Booking {
   workerName?: string;
   workerPhoto?: string;
   createdAt: any;
+  rating?: number;
+  customerLocation?: { lat: number; lng: number };
+  workerLocation?: { lat: number; lng: number };
 }
 
 export enum AppView {

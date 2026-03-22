@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../src/firebase';
 import { AppView, UserProfile, Booking } from '../src/types';
 import { APP_CATEGORIES } from '../src/constants';
@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { Tracking } from './Tracking';
+
 interface WorkerAppProps {
   user: User;
   profile: UserProfile;
@@ -35,7 +37,7 @@ interface WorkerAppProps {
 
 enum WorkerTab {
   REQUESTS = 'REQUESTS',
-  ACTIVE = 'ACTIVE',
+  MAP = 'MAP',
   HISTORY = 'HISTORY',
   PROFILE = 'PROFILE'
 }
@@ -48,7 +50,25 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   const [history, setHistory] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditServices, setShowEditServices] = useState(false);
+  const [activeTrackingOrder, setActiveTrackingOrder] = useState<Booking | null>(null);
   const [tempSkills, setTempSkills] = useState<string[]>(profile.skills || []);
+
+  useEffect(() => {
+    if (showEditServices) {
+      setTempSkills(profile.skills || []);
+    }
+  }, [showEditServices]); // Only run when modal opens
+
+  useEffect(() => {
+    setActiveTrackingOrder(prev => {
+      if (!prev) return null;
+      const updated = activeJobs.find(j => j.id === prev.id);
+      if (updated) return updated;
+      const inHistory = history.find(j => j.id === prev.id);
+      if (inHistory) return inHistory;
+      return null;
+    });
+  }, [activeJobs, history]);
 
   const allServices = Array.from(new Set(APP_CATEGORIES.flatMap(c => c.subCategories.flatMap(sc => sc.items.map(i => i.title)))));
 
@@ -157,16 +177,14 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           photo: profile.photo || 'https://picsum.photos/seed/worker/200',
           experience: profile.experience || '5'
         };
-        // Add to interestedWorkers array
-        const orderDoc = await getDoc(orderRef);
-        if (orderDoc.exists()) {
-          const currentInterested = orderDoc.data().interestedWorkers || [];
-          if (!currentInterested.some((w: any) => w.workerId === user.uid)) {
-            await updateDoc(orderRef, {
-              interestedWorkers: [...currentInterested, workerData]
-            });
-          }
-        }
+        await updateDoc(orderRef, {
+          status: 'assigned',
+          assignedWorkerId: user.uid,
+          workerName: profile.name,
+          workerPhoto: profile.photo || 'https://picsum.photos/seed/worker/200',
+          interestedWorkers: [workerData]
+        });
+        setActiveTab(WorkerTab.MAP);
       } else {
         // Just remove from local view by filtering it out (or we could add a rejectedWorkers array to the doc)
         setRequests(prev => prev.filter(r => r.id !== orderId));
@@ -282,11 +300,14 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   <p className="text-lg font-bold">₹{order.grandTotal}</p>
                 </div>
               </div>
-              <div className="h-40 bg-emerald-800/50 rounded-xl flex items-center justify-center border border-white/5 overflow-hidden">
+              <div 
+                onClick={() => setActiveTrackingOrder(order)}
+                className="h-40 bg-emerald-800/50 rounded-xl flex items-center justify-center border border-white/5 overflow-hidden relative cursor-pointer active:scale-[0.98] transition-all"
+              >
                 <img src="https://picsum.photos/seed/map/400/200" alt="Map" className="w-full h-full object-cover opacity-40 grayscale contrast-125" referrerPolicy="no-referrer" />
                 <div className="absolute flex flex-col items-center">
                   <MapPin size={32} className="text-emerald-400 animate-bounce" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest mt-2">Map View</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mt-2">Open Map View</p>
                 </div>
               </div>
             </div>
@@ -414,6 +435,20 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
     </div>
   );
 
+  if (activeTrackingOrder) {
+    return (
+      <Tracking 
+        order={activeTrackingOrder} 
+        userRole="professional" 
+        onBack={() => setActiveTrackingOrder(null)}
+        onCompleteJob={() => {
+          handleCompleteJob(activeTrackingOrder.id);
+          setActiveTrackingOrder(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
       {/* Worker Header */}
@@ -454,7 +489,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 font-display">
             {activeTab === WorkerTab.REQUESTS && 'New Requests'}
-            {activeTab === WorkerTab.ACTIVE && 'Active Jobs'}
+            {activeTab === WorkerTab.MAP && 'Active Jobs Map'}
             {activeTab === WorkerTab.HISTORY && 'Job History'}
             {activeTab === WorkerTab.PROFILE && 'My Profile'}
           </h2>
@@ -474,7 +509,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             transition={{ duration: 0.2 }}
           >
             {activeTab === WorkerTab.REQUESTS && renderRequests()}
-            {activeTab === WorkerTab.ACTIVE && renderActiveJobs()}
+            {activeTab === WorkerTab.MAP && renderActiveJobs()}
             {activeTab === WorkerTab.HISTORY && renderHistory()}
             {activeTab === WorkerTab.PROFILE && renderProfile()}
           </motion.div>
@@ -485,7 +520,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-xl border-t border-gray-100 flex justify-around py-3 pb-safe z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
         {[
           { id: WorkerTab.REQUESTS, icon: Bell, label: 'Requests', count: requests.length },
-          { id: WorkerTab.ACTIVE, icon: Activity, label: 'Active', count: activeJobs.length },
+          { id: WorkerTab.MAP, icon: MapPin, label: 'Map', count: activeJobs.length },
           { id: WorkerTab.HISTORY, icon: History, label: 'History' },
           { id: WorkerTab.PROFILE, icon: UserIcon, label: 'Profile' },
         ].map((item) => (
@@ -532,11 +567,15 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                     <input 
                       type="checkbox" 
                       checked={tempSkills.includes(service)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setTempSkills([...tempSkills, service]);
-                        } else {
-                          setTempSkills(tempSkills.filter(s => s !== service));
+                      onChange={async (e) => {
+                        const newSkills = e.target.checked 
+                          ? [...tempSkills, service] 
+                          : tempSkills.filter(s => s !== service);
+                        setTempSkills(newSkills);
+                        try {
+                          await updateDoc(doc(db, 'users', user.uid), { skills: newSkills });
+                        } catch (error) {
+                          console.error('Error updating services:', error);
                         }
                       }}
                       className="w-5 h-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
@@ -548,10 +587,13 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
 
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <button 
-                  onClick={handleSaveServices}
+                  onClick={() => {
+                    setShowEditServices(false);
+                    fetchProfile();
+                  }}
                   className="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
                 >
-                  Save Changes
+                  Done
                 </button>
               </div>
             </motion.div>

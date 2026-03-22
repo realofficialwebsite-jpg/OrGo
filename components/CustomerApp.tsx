@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, 
@@ -19,7 +19,9 @@ import {
   Plus,
   CheckCircle2,
   RefreshCw,
-  Trash2
+  Trash2,
+  ShoppingCart,
+  X
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { AppView, Category, SubCategory, UserProfile, Booking } from '../src/types';
@@ -29,6 +31,7 @@ import { Tracking } from './Tracking';
 import { Account } from './Account';
 import { Cart } from './Cart';
 import { Checkout } from './Checkout';
+import { EditProfileModal } from './EditProfileModal';
 
 interface CustomerAppProps {
   user: User;
@@ -60,7 +63,18 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
   const [orderToCancel, setOrderToCancel] = useState<Booking | null>(null);
+  const [activeOrder, setActiveOrder] = useState<Booking | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const { cart, addToCart, removeFromCart, getItemQuantity, cartTotal } = useCart();
+
+  useEffect(() => {
+    setActiveOrder(prev => {
+      if (!prev) return null;
+      const updated = orders.find(o => o.id === prev.id);
+      return updated || prev;
+    });
+  }, [orders]);
 
   const handleCategoryClick = (category: Category) => {
     setSelectedCategory(category);
@@ -103,13 +117,45 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               </div>
               <p className="text-xs text-gray-500 font-medium truncate max-w-[220px] mt-0.5">B-12, Vaishali Nagar, Jaipur, Rajasthan 302021</p>
             </div>
-            <div className="flex items-center gap-4">
-              <button className="relative p-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+            <div className="flex items-center gap-4 relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+              >
                 <Bell size={20} className="text-gray-700" strokeWidth={2.5} />
                 <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
               </button>
+              
+              <AnimatePresence>
+                {showNotifications && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute top-12 right-0 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50"
+                  >
+                    <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                      <h3 className="font-bold text-gray-900">Notifications</h3>
+                      <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full">2 New</span>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      <div className="p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <p className="text-sm font-bold text-gray-900 mb-1">Booking Confirmed!</p>
+                        <p className="text-xs text-gray-500">Your AC Repair is scheduled for tomorrow at 10 AM.</p>
+                        <p className="text-[10px] text-gray-400 mt-2 font-medium">2 hours ago</p>
+                      </div>
+                      <div className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <p className="text-sm font-bold text-gray-900 mb-1">Special Offer</p>
+                        <p className="text-xs text-gray-500">Get 20% off on your next plumbing service. Use code PLUMB20.</p>
+                        <p className="text-[10px] text-gray-400 mt-2 font-medium">1 day ago</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <button 
-                onClick={() => setView(AppView.ACCOUNT)}
+                onClick={() => setShowEditProfile(true)}
                 className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 hover:bg-gray-100 transition-colors"
               >
                 {user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <UserIcon size={20} className="text-gray-500" strokeWidth={2.5} />}
@@ -390,7 +436,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               </div>
               <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                 <span className="text-lg font-bold text-gray-900">₹{order.grandTotal}</span>
-                <button onClick={() => setView(AppView.TRACKING)} className="text-red-600 text-sm font-bold flex items-center gap-1">View Details <ChevronRight size={14} /></button>
+                <button 
+                  onClick={() => {
+                    setActiveOrder(order);
+                    setView(AppView.TRACKING);
+                  }} 
+                  className="text-red-600 text-sm font-bold flex items-center gap-1"
+                >
+                  View Details <ChevronRight size={14} />
+                </button>
               </div>
             </div>
           ))
@@ -429,8 +483,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           {view === AppView.SERVICE_DETAILS && renderServiceDetails()}
           {view === AppView.ORDERS && renderOrders()}
           {view === AppView.CART && <Cart onClose={() => setView(AppView.SUB_CATEGORY)} setView={setView} />}
-          {view === AppView.CHECKOUT && <Checkout onClose={() => setView(AppView.CART)} setView={setView} />}
-          {view === AppView.TRACKING && <Tracking key="tracking" onBack={() => setView(AppView.ORDERS)} />}
+          {view === AppView.CHECKOUT && <Checkout onClose={() => setView(AppView.CART)} setView={setView} setActiveOrder={setActiveOrder} />}
+          {view === AppView.TRACKING && activeOrder && (
+            <Tracking 
+              key="tracking" 
+              order={activeOrder}
+              userRole="customer"
+              onBack={() => setView(AppView.ORDERS)} 
+            />
+          )}
           {view === AppView.ACCOUNT && user && (
             <Account 
               key="account" 
@@ -473,7 +534,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         {[
           { id: AppView.HOME, icon: Home, label: 'Home' },
           { id: AppView.ORDERS, icon: ClipboardList, label: 'Bookings' },
-          { id: AppView.TRACKING, icon: MapPin, label: 'Track' },
+          { id: AppView.CART, icon: ShoppingCart, label: 'Cart' },
           { id: AppView.ACCOUNT, icon: UserIcon, label: 'Profile' },
         ].map((item) => (
           <button 
@@ -486,6 +547,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </button>
         ))}
       </div>
+
+      {showEditProfile && (
+        <EditProfileModal 
+          user={user} 
+          profile={profile} 
+          onClose={() => setShowEditProfile(false)} 
+          onUpdate={fetchProfile} 
+        />
+      )}
     </div>
   );
 };

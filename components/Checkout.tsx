@@ -26,6 +26,7 @@ import CustomerRadar from './CustomerRadar';
 interface CheckoutProps {
   onClose: () => void;
   setView: (view: AppView) => void;
+  setActiveOrder: (order: Booking) => void;
 }
 
 const TIME_SLOTS = [
@@ -34,7 +35,7 @@ const TIME_SLOTS = [
   '04:00 PM', '05:00 PM', '06:00 PM', '07:00 PM'
 ];
 
-export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
+export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveOrder }) => {
   const { cart, cartTotal, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -210,6 +211,19 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
         console.log('Image uploaded:', imageUrl);
       }
 
+      let customerLocation = { lat: 0, lng: 0 };
+      try {
+        const pos = await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+            (error) => reject(error)
+          );
+        });
+        customerLocation = pos;
+      } catch (e) {
+        console.warn('Could not get location:', e);
+      }
+
       const orderPayload = {
         userId: auth.currentUser.uid,
         cartItems: cart,
@@ -223,7 +237,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
         imageUrl,
         status: 'searching',
         interestedWorkers: [],
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        customerLocation
       };
 
       console.log('Saving order to Firestore:', orderPayload);
@@ -574,7 +589,10 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
 
               <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
                 <button 
-                  onClick={() => { setIsInstant(true); nextStep(); }}
+                  onClick={() => {
+                    setIsInstant(true);
+                    setStep(3);
+                  }}
                   className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all ${isInstant ? 'bg-white shadow-sm text-primary' : 'text-gray-500'}`}
                 >
                   Get it Now (Instant)
@@ -753,7 +771,9 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Schedule</span>
-                    <span className="text-gray-900 font-bold">{selectedDate} at {selectedTime}</span>
+                    <span className="text-gray-900 font-bold">
+                      {isInstant ? 'Instant (Now)' : `${selectedDate} at ${selectedTime}`}
+                    </span>
                   </div>
                   <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
                     <span className="text-base font-bold text-gray-900">Total Amount</span>
@@ -774,11 +794,12 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView }) => {
             >
               <CustomerRadar 
                 orderId={createdOrderId} 
-                onWorkerSelected={() => {
+                onWorkerAssigned={(order) => {
                   setSuccess(true);
                   setTimeout(() => {
                     clearCart();
-                    setView(AppView.ORDERS);
+                    setActiveOrder(order);
+                    setView(AppView.TRACKING);
                   }, 3000);
                 }} 
               />

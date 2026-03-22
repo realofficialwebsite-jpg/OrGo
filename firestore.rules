@@ -76,7 +76,7 @@ service cloud.firestore {
              data.email is string &&
              (!('phone' in data) || data.phone is string) &&
              (!('addresses' in data) || (data.addresses is list && data.addresses.size() <= 10)) &&
-             (!('role' in data) || data.role in ['admin', 'client']);
+             (!('role' in data) || data.role in ['admin', 'client', 'customer', 'professional']);
     }
 
     // ===============================================================
@@ -85,29 +85,44 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Users can read their own profile. Admins can read all.
-      allow read: if isOwner(userId) || isAdmin();
+      // Workers might need to read customer profiles, and customers might need to read worker profiles.
+      // For now, allow authenticated users to read profiles.
+      allow read: if isAuthenticated();
       
       // Users can create/update their own profile. 
       // role cannot be set to admin by the user unless they are already admin.
       allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
-                      (!('role' in request.resource.data) || request.resource.data.role == 'client' || isAdmin());
+                      (!('role' in request.resource.data) || request.resource.data.role in ['client', 'customer', 'professional'] || isAdmin());
       
       allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
-                      (request.resource.data.role == resource.data.role || isAdmin());
+                      (request.resource.data.role == resource.data.role || request.resource.data.role in ['client', 'customer', 'professional'] || isAdmin());
     }
 
     match /order/{orderId} {
       // Users can read their own orders. Admins can read all.
-      allow read: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      // Workers need to read orders that are 'searching' or assigned to them.
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        resource.data.userId == request.auth.uid ||
+        resource.data.status == 'searching' ||
+        resource.data.assignedWorkerId == request.auth.uid
+      );
       
       // Users can create orders for themselves.
       allow create: if isAuthenticated() && 
                       request.resource.data.userId == request.auth.uid;
       
-      // Only owner or admin can update.
+      // Owner can update.
+      // Admin can update.
+      // Worker can update if they are adding themselves to interestedWorkers (status is searching), or if they are the assignedWorkerId.
       allow update: if isAuthenticated() && 
-                      (resource.data.userId == request.auth.uid || isAdmin()) &&
-                      request.resource.data.userId == resource.data.userId;
+                      request.resource.data.userId == resource.data.userId &&
+                      (
+                        resource.data.userId == request.auth.uid || 
+                        isAdmin() ||
+                        resource.data.status == 'searching' ||
+                        resource.data.assignedWorkerId == request.auth.uid
+                      );
                       
       allow delete: if isAdmin();
     }
