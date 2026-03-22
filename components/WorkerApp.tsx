@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../src/firebase';
 import { AppView, UserProfile, Booking } from '../src/types';
 import { APP_CATEGORIES } from '../src/constants';
@@ -21,7 +21,8 @@ import {
   Navigation,
   LogOut,
   RefreshCw,
-  Edit2
+  Edit2,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -52,6 +53,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   const [showEditServices, setShowEditServices] = useState(false);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Booking | null>(null);
   const [tempSkills, setTempSkills] = useState<string[]>(profile.skills || []);
+  const [selectedRequest, setSelectedRequest] = useState<Booking | null>(null);
 
   useEffect(() => {
     if (showEditServices) {
@@ -168,6 +170,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   };
 
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
+    if (!orderId) return;
     try {
       const orderRef = doc(db, 'order', orderId);
       if (action === 'accept') {
@@ -175,26 +178,29 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           workerId: user.uid,
           name: profile.name,
           photo: profile.photo || 'https://picsum.photos/seed/worker/200',
-          experience: profile.experience || '5'
+          experience: profile.experience || '5',
+          phone: profile.phone || '',
+          rating: profile.rating || 0,
+          totalReviews: profile.totalReviews || 0
         };
         await updateDoc(orderRef, {
-          status: 'assigned',
-          assignedWorkerId: user.uid,
-          workerName: profile.name,
-          workerPhoto: profile.photo || 'https://picsum.photos/seed/worker/200',
-          interestedWorkers: [workerData]
+          interestedWorkers: arrayUnion(workerData)
         });
-        setActiveTab(WorkerTab.MAP);
+        setSelectedRequest(null);
+        setRequests(prev => prev.filter(r => r.id !== orderId));
+        alert('Bid submitted! Waiting for customer to confirm.');
       } else {
-        // Just remove from local view by filtering it out (or we could add a rejectedWorkers array to the doc)
+        setSelectedRequest(null);
         setRequests(prev => prev.filter(r => r.id !== orderId));
       }
     } catch (error) {
       console.error(`Error updating order:`, error);
+      alert('Failed to submit bid.');
     }
   };
 
   const handleCompleteJob = async (orderId: string) => {
+    if (!orderId) return;
     try {
       await updateDoc(doc(db, 'order', orderId), { status: 'completed' });
     } catch (error) {
@@ -202,54 +208,147 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
     }
   };
 
-  const renderRequests = () => (
-    <div className="space-y-4">
-      {requests.length === 0 ? (
+  const renderRequests = () => {
+    if (!isOnline) {
+      return (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <Bell size={32} />
+            <Power size={32} />
           </div>
-          <p className="font-bold text-sm uppercase tracking-widest">No new requests</p>
-          <p className="text-xs mt-1">Stay online to receive new jobs</p>
+          <p className="font-bold text-sm uppercase tracking-widest">You are offline</p>
+          <p className="text-xs mt-1">Go online to receive new jobs</p>
         </div>
-      ) : (
-        requests.map(order => (
-          <motion.div 
-            key={order.id}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">New Request</p>
-                <h3 className="font-bold text-gray-900">{order.cartItems[0]?.title}</h3>
-                <p className="text-xs text-gray-500">{order.address}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-lg text-gray-900">₹{order.grandTotal}</p>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{order.scheduledDate}</p>
-              </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {requests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <Bell size={32} />
             </div>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => handleOrderAction(order.id, 'accept')}
-                className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+            <p className="font-bold text-sm uppercase tracking-widest">No new requests</p>
+            <p className="text-xs mt-1">Stay online to receive new jobs</p>
+          </div>
+        ) : (
+          requests.map(order => (
+            <motion.div 
+              key={order.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">New Request</p>
+                  <h3 className="font-bold text-gray-900">{order?.cartItems?.[0]?.title}</h3>
+                  <p className="text-xs text-gray-500">{order.address}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-lg text-gray-900">₹{order.grandTotal}</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{order.scheduledDate}</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setSelectedRequest(order)}
+                  className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                >
+                  <Check size={16} strokeWidth={3} /> View Details
+                </button>
+                <button 
+                  onClick={() => handleOrderAction(order.id, 'reject')}
+                  className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                >
+                  <X size={16} strokeWidth={3} /> Reject
+                </button>
+              </div>
+            </motion.div>
+          ))
+        )}
+
+        {/* Request Details Modal */}
+        <AnimatePresence>
+          {selectedRequest && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+              <motion.div 
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                className="bg-white w-full max-w-lg rounded-[40px] overflow-hidden shadow-2xl"
               >
-                <Check size={16} strokeWidth={3} /> Accept
-              </button>
-              <button 
-                onClick={() => handleOrderAction(order.id, 'reject')}
-                className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <X size={16} strokeWidth={3} /> Reject
-              </button>
+                <div className="p-8">
+                  <div className="flex justify-between items-start mb-8">
+                    <div>
+                      <h2 className="text-2xl font-display font-bold text-gray-900">Order Details</h2>
+                      <p className="text-gray-500 font-medium mt-1">Review before accepting</p>
+                    </div>
+                    <button 
+                      onClick={() => setSelectedRequest(null)}
+                      className="p-2 bg-gray-100 rounded-full text-gray-500"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6 mb-8">
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
+                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
+                        <UserIcon size={24} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</p>
+                        <p className="font-bold text-gray-900">{selectedRequest.customerName || 'User'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
+                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
+                        <MapPin size={24} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Service Address</p>
+                        <p className="font-bold text-gray-900 text-sm">{selectedRequest.address}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
+                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
+                        <Clock size={24} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Service Type</p>
+                        <p className="font-bold text-gray-900">{selectedRequest.cartItems[0].title}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => setSelectedRequest(null)}
+                      className="flex-1 py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all"
+                    >
+                      Close
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleOrderAction(selectedRequest.id!, 'accept');
+                        setSelectedRequest(null);
+                      }}
+                      className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+                    >
+                      Accept Request
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
             </div>
-          </motion.div>
-        ))
-      )}
-    </div>
-  );
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
 
   const renderActiveJobs = () => (
     <div className="space-y-4">
@@ -274,7 +373,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                   <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Job in Progress</p>
                 </div>
-                <h3 className="text-xl font-bold font-display">{order.cartItems[0]?.title}</h3>
+                <h3 className="text-xl font-bold font-display">{order?.cartItems?.[0]?.title}</h3>
                 <p className="text-xs text-emerald-200/60 mt-1 flex items-center gap-1.5">
                   <MapPin size={12} /> {order.address}
                 </p>
@@ -292,7 +391,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Customer</p>
-                    <p className="text-sm font-bold">Booking ID: #{order.id.slice(-6)}</p>
+                    <p className="text-sm font-bold">Booking ID: #{order?.id?.slice(-6)}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -341,13 +440,21 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                 {order.status === 'completed' ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
               </div>
               <div>
-                <h4 className="font-bold text-gray-900 text-sm">{order.cartItems[0]?.title}</h4>
+                <h4 className="font-bold text-gray-900 text-sm">{order?.cartItems?.[0]?.title}</h4>
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{order.scheduledDate}</p>
               </div>
             </div>
             <div className="text-right">
               <p className="font-bold text-gray-900 text-sm">₹{order.grandTotal}</p>
-              <p className={`text-[10px] font-bold uppercase tracking-widest ${order.status === 'completed' ? 'text-emerald-600' : 'text-red-600'}`}>{order.status}</p>
+              <div className="flex flex-col items-end gap-1">
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${order.status === 'completed' ? 'text-emerald-600' : 'text-red-600'}`}>{order.status}</p>
+                {order.isRated && (
+                  <div className="flex items-center gap-1 bg-yellow-50 px-1.5 py-0.5 rounded-md">
+                    <Star size={10} className="text-yellow-500 fill-yellow-500" />
+                    <span className="text-[10px] font-bold text-yellow-700">{order.rating}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))
@@ -366,7 +473,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         
         <div className="grid grid-cols-3 gap-8 w-full mt-8 pt-8 border-t border-gray-50">
           <div className="text-center">
-            <p className="text-xl font-bold text-gray-900">4.9</p>
+            <p className="text-xl font-bold text-gray-900">{profile.rating ? profile.rating.toFixed(1) : 'N/A'}</p>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Rating</p>
           </div>
           <div className="text-center">
@@ -400,6 +507,31 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             <p className="text-sm text-gray-400">No services added yet.</p>
           )}
         </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm mt-6">
+        <h3 className="font-bold text-gray-900 mb-4">My Reviews</h3>
+        {history.filter(h => h.isRated).length === 0 ? (
+          <p className="text-sm text-gray-400">No reviews yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {history.filter(h => h.isRated).map(review => (
+              <div key={review.id} className="border-b border-gray-50 pb-4 last:border-0 last:pb-0">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-bold text-gray-900 text-sm">{review.customerName || 'Customer'}</p>
+                  <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
+                    <Star size={12} className="text-yellow-500 fill-yellow-500" />
+                    <span className="text-xs font-bold text-yellow-700">{review.rating}</span>
+                  </div>
+                </div>
+                {review.reviewText && (
+                  <p className="text-sm text-gray-600 italic">"{review.reviewText}"</p>
+                )}
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">{review.scheduledDate}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2 mt-6">
@@ -539,6 +671,76 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           </button>
         ))}
       </div>
+      {/* Selected Request Modal */}
+      <AnimatePresence>
+        {selectedRequest && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Job Details</h2>
+                  <p className="text-sm text-gray-500 mt-1">Review before accepting</p>
+                </div>
+                <button onClick={() => setSelectedRequest(null)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Customer</p>
+                  <p className="font-bold text-gray-900 text-lg">{selectedRequest.customerName || 'Customer'}</p>
+                </div>
+
+                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Estimated Earnings</p>
+                  <p className="font-bold text-emerald-700 text-2xl">₹{selectedRequest.grandTotal}</p>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Service Location</p>
+                  <div className="flex items-start gap-2 mt-1">
+                    <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
+                    <p className="text-sm font-medium text-gray-700">{selectedRequest.address}</p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Contact Options (After Accept)</p>
+                  <div className="flex gap-3">
+                    <div className="flex-1 py-2 bg-gray-200 text-gray-500 font-bold rounded-xl text-xs flex items-center justify-center gap-2">
+                      Call
+                    </div>
+                    <div className="flex-1 py-2 bg-gray-200 text-gray-500 font-bold rounded-xl text-xs flex items-center justify-center gap-2">
+                      WhatsApp
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                <button 
+                  onClick={() => handleOrderAction(selectedRequest.id, 'accept')}
+                  className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-600/20"
+                >
+                  <Check size={18} strokeWidth={3} /> Accept Job
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Edit Services Modal */}
       <AnimatePresence>
         {showEditServices && (

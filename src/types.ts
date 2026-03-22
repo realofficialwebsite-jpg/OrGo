@@ -47,6 +47,9 @@ export interface InterestedWorker {
   name: string;
   photo: string;
   experience: string;
+  phone?: string;
+  rating?: number;
+  totalReviews?: number;
 }
 
 export interface Booking {
@@ -60,13 +63,18 @@ export interface Booking {
   isInstant: boolean;
   instructions: string;
   imageUrl?: string;
-  status: 'searching' | 'assigned' | 'completed' | 'cancelled';
+  status: 'searching' | 'assigned' | 'on_the_way' | 'completed' | 'cancelled';
   interestedWorkers: InterestedWorker[];
   assignedWorkerId?: string;
   workerName?: string;
   workerPhoto?: string;
   createdAt: any;
   rating?: number;
+  reviewText?: string;
+  isRated?: boolean;
+  customerPhone?: string;
+  customerName?: string;
+  workerPhone?: string;
   customerLocation?: { lat: number; lng: number };
   workerLocation?: { lat: number; lng: number };
 }
@@ -114,4 +122,6 @@ export interface UserProfile {
   isOnline?: boolean;
   age?: string;
   experience?: string;
+  rating?: number;
+  totalReviews?: number;
 }

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Phone, MessageSquare, MapPin, CheckCircle, ChevronLeft, Star, Clock, Navigation } from 'lucide-react';
+import { Phone, MessageSquare, MapPin, CheckCircle, ChevronLeft, Star, Clock, Navigation, XCircle } from 'lucide-react';
 import { Booking } from '../src/types';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../src/firebase';
 import { LiveTracking } from './LiveTracking';
 
@@ -17,22 +17,90 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
   const isWorker = userRole === 'professional';
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  if (!order) return (
+    <div className="flex flex-col items-center justify-center h-screen p-6 text-center">
+      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+        <MapPin size={32} className="text-gray-300" />
+      </div>
+      <h2 className="text-xl font-bold text-gray-900">No active booking</h2>
+      <p className="text-gray-500 mt-2">Book a service to see it here!</p>
+      {onBack && (
+        <button onClick={onBack} className="mt-6 text-primary font-bold">Back to Home</button>
+      )}
+    </div>
+  );
 
   const handleRatingSubmit = async () => {
-    if (rating === 0) return;
+    if (rating === 0 || !order?.id || !order.assignedWorkerId) return;
+    setSubmitting(true);
     try {
-      await updateDoc(doc(db, 'order', order.id), { rating });
+      const orderRef = doc(db, 'order', order.id);
+      await updateDoc(orderRef, { 
+        rating, 
+        reviewText,
+        isRated: true 
+      });
+
+      const workerRef = doc(db, 'users', order.assignedWorkerId);
+      const workerSnap = await getDoc(workerRef);
+      
+      if (workerSnap.exists()) {
+        const workerData = workerSnap.data();
+        const oldAvg = workerData.rating || 0;
+        const oldTotal = workerData.totalReviews || 0;
+        const newAvg = ((oldAvg * oldTotal) + rating) / (oldTotal + 1);
+        
+        await updateDoc(workerRef, {
+          rating: newAvg,
+          totalReviews: oldTotal + 1
+        });
+      }
+
       setFeedbackSubmitted(true);
     } catch (error) {
       console.error('Error submitting rating:', error);
+      alert('Failed to submit feedback.');
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const handleCancelBooking = async () => {
+    if (!order?.id) return;
+    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+    
+    setCancelling(true);
+    try {
+      await updateDoc(doc(db, 'order', order.id), { status: 'cancelled' });
+      if (onBack) onBack();
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      alert('Failed to cancel booking.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const targetPhone = isWorker ? order.customerPhone : order.workerPhone;
+  const msg = isWorker ? "Hello, I'm on my way for your service." : "Hello, I'm waiting for my service.";
+
+  const handleWhatsApp = () => {
+    if (!targetPhone) return alert('Phone number not available');
+    const cleanPhone = targetPhone.replace(/\D/g, '');
+    window.open('https://wa.me/91' + cleanPhone + '?text=' + encodeURIComponent(msg), '_blank');
+  };
+
+  const isOngoing = order.status === 'assigned' || order.status === 'on_the_way';
 
   return (
     <div className="flex flex-col h-screen bg-white max-w-2xl mx-auto relative overflow-hidden font-sans">
       {/* Header */}
-      <div className="absolute top-6 left-6 z-20">
+      <div className="absolute top-6 left-6 z-20 flex items-center gap-3">
         <button 
           onClick={onBack}
           className="p-3 bg-white shadow-lg rounded-2xl text-gray-700 active:scale-95 transition-all border border-gray-100"
@@ -42,54 +110,21 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
       </div>
 
       {/* Map Section */}
-      {order.status === 'assigned' ? (
+      {isOngoing ? (
         <div className="h-[400px] w-full">
           <LiveTracking order={order} userRole={isWorker ? 'worker' : 'customer'} />
         </div>
       ) : (
-        <div id="map-container" className="h-[50vh] bg-slate-50 relative w-full overflow-hidden">
-          <div className="absolute inset-0 bg-[url('https://api.maptiler.com/maps/basic-v2/static/-122.4194,37.7749,12/800x600.png?key=get_your_own_key')] bg-cover opacity-40 grayscale contrast-[1.1]"></div>
-          
-          {/* Animated Route Line (Visual only) */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            <motion.path
-              d="M 100 100 L 200 250"
-              stroke="#6366f1"
-              strokeWidth="3"
-              strokeDasharray="6 6"
-              fill="transparent"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            />
-          </svg>
-
-          {/* User Pin */}
-          <div className="absolute top-[250px] left-[200px] transform -translate-x-1/2 -translate-y-1/2">
-             <div className="relative">
-               <div className="w-5 h-5 bg-primary rounded-full border-4 border-white shadow-xl"></div>
-               <div className="absolute -top-10 -left-8 bg-white px-3 py-1.5 rounded-xl shadow-xl text-[10px] font-bold whitespace-nowrap border border-gray-50 text-gray-900">
-                 {isWorker ? 'Customer' : 'You are here'}
-               </div>
-               <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
-             </div>
+        <div className="h-[40vh] bg-slate-50 relative w-full flex items-center justify-center">
+          <div className="text-center p-10">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock size={32} className="text-gray-300" />
+            </div>
+            <h3 className="font-bold text-gray-900">
+              {order.status === 'completed' ? 'Service Completed' : 
+               order.status === 'cancelled' ? 'Service Cancelled' : 'Order Status: ' + order.status}
+            </h3>
           </div>
-
-          {/* Pro Pin */}
-          <motion.div 
-            animate={{ y: [0, -8, 0] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            className="absolute top-[100px] left-[100px]"
-          >
-             <div className="relative">
-               <div className="w-12 h-12 bg-white rounded-2xl shadow-xl flex items-center justify-center border border-gray-100">
-                  <Navigation className="text-primary fill-primary/5 rotate-45" size={24} strokeWidth={2.5} />
-               </div>
-               <div className="absolute -top-12 -left-10 bg-primary text-white px-3 py-1.5 rounded-xl shadow-xl text-[10px] font-bold whitespace-nowrap">
-                 {isWorker ? 'You are here' : 'Professional'}
-               </div>
-             </div>
-          </motion.div>
         </div>
       )}
 
@@ -110,48 +145,56 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
             </div>
             <div>
               <h2 className="text-xl font-display font-bold text-gray-900">
-                {isWorker ? 'Customer' : (order.workerName || 'Professional')}
+                {isWorker ? (order.customerName || 'Customer') : (order.workerName || 'Professional')}
               </h2>
               <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mt-1.5">
                 {isWorker ? (
-                  <span>{order.address}</span>
+                  <span className="truncate max-w-[180px]">{order.address}</span>
                 ) : (
                   <>
                     <span className="flex items-center gap-1 text-amber-500"><Star size={14} fill="currentColor" /> 4.8</span>
                     <span className="opacity-30">•</span>
-                    <span>{order.cartItems[0]?.title || 'Service Expert'}</span>
+                    <span>{order?.cartItems?.[0]?.title || 'Service Expert'}</span>
                   </>
                 )}
               </div>
             </div>
           </div>
-          {!isWorker && (
-            <div className="bg-primary/5 p-4 rounded-2xl text-center min-w-[85px] border border-primary/10">
-              <p className="text-2xl font-display font-bold text-primary leading-none">15</p>
-              <p className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1.5">Mins</p>
-            </div>
-          )}
         </div>
 
-        <div className="flex gap-4 mb-10">
-          <a href="tel:+1234567890" className="flex-1 flex items-center justify-center gap-3 py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg shadow-gray-900/10 active:scale-[0.98] transition-all">
-            <Phone size={18} strokeWidth={2.5} /> Call
-          </a>
-          <a href="sms:+1234567890" className="flex-1 flex items-center justify-center gap-3 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all hover:bg-gray-50">
-            <MessageSquare size={18} strokeWidth={2.5} /> Message
-          </a>
-        </div>
-
-        {isWorker && order.status === 'assigned' && (
-          <div className="mb-10">
+        {isOngoing && (
+          <div className="flex gap-4 mb-10">
+            <a href={`tel:+91${targetPhone}`} className="flex-1 flex items-center justify-center gap-3 py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all">
+              <Phone size={18} strokeWidth={2.5} /> Call
+            </a>
             <button 
-              onClick={onCompleteJob}
-              className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              onClick={handleWhatsApp}
+              className="flex-1 flex items-center justify-center gap-3 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all hover:bg-gray-50"
             >
-              <CheckCircle size={20} /> Mark Job as Completed
+              <MessageSquare size={18} strokeWidth={2.5} /> WhatsApp
             </button>
           </div>
         )}
+
+        <div className="flex gap-4 mb-10">
+          {isWorker && isOngoing && (
+            <button 
+              onClick={onCompleteJob}
+              className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={20} /> Complete Job
+            </button>
+          )}
+          {isOngoing && (
+            <button 
+              onClick={handleCancelBooking}
+              disabled={cancelling}
+              className={`flex-1 py-4 ${isWorker ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-red-600 text-white'} rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2`}
+            >
+              <XCircle size={20} /> {cancelling ? 'Cancelling...' : 'Cancel Booking'}
+            </button>
+          )}
+        </div>
 
         {order.status === 'completed' && !isWorker && !feedbackSubmitted && !order.rating && (
           <div className="mb-10 bg-gray-50 p-6 rounded-3xl border border-gray-100 text-center">
@@ -170,12 +213,20 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
                 </button>
               ))}
             </div>
+            {rating > 0 && (
+              <textarea
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                placeholder="Leave a review (optional)"
+                className="w-full p-4 mb-6 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none h-24"
+              />
+            )}
             <button 
               onClick={handleRatingSubmit}
-              disabled={rating === 0}
-              className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg shadow-gray-900/10 active:scale-[0.98] transition-all disabled:opacity-50"
+              disabled={rating === 0 || submitting}
+              className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Submit Feedback
+              {submitting ? 'Submitting...' : 'Submit Feedback'}
             </button>
           </div>
         )}
@@ -200,24 +251,23 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
               <div className="absolute -left-[41px] bg-green-500 w-5 h-5 rounded-full border-4 border-white shadow-sm"></div>
               <div>
                 <p className="font-bold text-gray-900 text-sm">Booking Confirmed</p>
-                <p className="text-xs text-gray-400 font-bold mt-0.5">Order #{order.id.slice(0, 8).toUpperCase()}</p>
+                <p className="text-xs text-gray-400 font-bold mt-0.5">Order #{order?.id?.slice(0, 8).toUpperCase()}</p>
               </div>
             </div>
             
             <div className="relative">
-              <div className="absolute -left-[41px] bg-green-500 w-5 h-5 rounded-full border-4 border-white shadow-sm"></div>
+              <div className={`absolute -left-[41px] ${order.status !== 'searching' && order.status !== 'cancelled' ? 'bg-green-500' : 'bg-gray-200'} w-5 h-5 rounded-full border-4 border-white shadow-sm`}></div>
               <div>
                 <p className="font-bold text-gray-900 text-sm">Professional Assigned</p>
-                <p className="text-xs text-gray-400 font-bold mt-0.5">{order.workerName || 'Worker'}</p>
+                <p className="text-xs text-gray-400 font-bold mt-0.5">{order.workerName || 'Waiting for selection...'}</p>
               </div>
             </div>
             
-            <div className={`relative ${order.status === 'completed' ? '' : ''}`}>
-              <div className={`absolute -left-[41px] ${order.status === 'completed' ? 'bg-green-500' : 'bg-primary'} w-5 h-5 rounded-full border-4 border-white shadow-lg ${order.status === 'completed' ? '' : 'shadow-primary/20'}`}></div>
-              {order.status !== 'completed' && <div className="absolute -left-[41px] bg-primary w-5 h-5 rounded-full border-4 border-white animate-ping opacity-30"></div>}
+            <div className="relative">
+              <div className={`absolute -left-[41px] ${order.status === 'on_the_way' || order.status === 'completed' ? 'bg-green-500' : (order.status === 'assigned' ? 'bg-primary animate-pulse' : 'bg-gray-200')} w-5 h-5 rounded-full border-4 border-white shadow-lg`}></div>
               <div>
-                <p className={`font-bold ${order.status === 'completed' ? 'text-gray-900' : 'text-primary'} text-sm`}>On the Way</p>
-                <p className={`text-xs ${order.status === 'completed' ? 'text-gray-400' : 'text-primary/60'} font-bold mt-0.5`}>Arriving in 15 mins</p>
+                <p className={`font-bold ${order.status === 'on_the_way' ? 'text-primary' : 'text-gray-900'} text-sm`}>On the Way</p>
+                <p className="text-xs text-gray-400 font-bold mt-0.5">{order.status === 'on_the_way' ? 'Arriving soon' : 'Pending'}</p>
               </div>
             </div>
             

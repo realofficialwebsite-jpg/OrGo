@@ -224,8 +224,13 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
         console.warn('Could not get location:', e);
       }
 
+      const selectedAddr = savedAddresses.find(a => a.id === selectedAddressId);
+      const customerPhone = selectedAddr?.phone || '';
+      const customerName = selectedAddr?.name || auth.currentUser?.displayName || 'Customer';
+
       const orderPayload = {
         userId: auth.currentUser.uid,
+        customerName,
         cartItems: cart,
         grandTotal,
         address: getSelectedAddressString(),
@@ -238,7 +243,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
         status: 'searching',
         interestedWorkers: [],
         createdAt: serverTimestamp(),
-        customerLocation
+        customerLocation,
+        customerPhone
       };
 
       console.log('Saving order to Firestore:', orderPayload);
@@ -802,6 +808,10 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
                     setView(AppView.TRACKING);
                   }, 3000);
                 }} 
+                onBackToHome={() => {
+                  clearCart();
+                  setView(AppView.HOME);
+                }}
               />
             </motion.div>
           )}

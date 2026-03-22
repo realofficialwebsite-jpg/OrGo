@@ -721,7 +721,7 @@ const App: React.FC = () => {
   };
 
   const handleCancelOrder = async (order: Booking) => {
-    if (!user) return;
+    if (!user || !order?.id) return;
     setCancelling(true);
     try {
       const orderRef = doc(db, 'order', order.id);

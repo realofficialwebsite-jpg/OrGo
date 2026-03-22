@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../src/firebase';
 import { Booking } from '../src/types';
-import { calculateETA } from '../src/utils/location';
+import { calculateDistance, calculateETA } from '../src/utils/location';
 import { Phone, MessageSquare, Navigation } from 'lucide-react';
 
 // Fix Leaflet marker icon issue
@@ -37,38 +37,69 @@ interface LiveTrackingProps {
 }
 
 export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) => {
-  const [workerLocation, setWorkerLocation] = useState(order.workerLocation);
+  const [workerLocation, setWorkerLocation] = useState(order?.workerLocation);
   const [eta, setEta] = useState<number | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!order || !order.id) return;
+    
     if (userRole === 'worker') {
       const watchId = navigator.geolocation.watchPosition(
         async (position) => {
-          const { latitude, longitude } = position.coords;
-          const newLocation = { lat: latitude, lng: longitude };
-          setWorkerLocation(newLocation);
-          await updateDoc(doc(db, 'order', order.id), { workerLocation: newLocation });
+          try {
+            const newLocation = { 
+              lat: Number(position.coords.latitude), 
+              lng: Number(position.coords.longitude) 
+            };
+            
+            setWorkerLocation(newLocation);
+            await updateDoc(doc(db, 'order', order.id), { 
+              workerLocation: newLocation 
+            });
+          } catch (error) {
+            console.error("Error updating worker location:", error);
+          }
         },
-        (error) => console.error(error),
+        (error) => console.error("Geolocation error:", error),
         { enableHighAccuracy: true }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     } else {
-      const unsubscribe = onSnapshot(doc(db, 'order', order.id), (doc) => {
-        const data = doc.data() as Booking;
-        if (data.workerLocation) setWorkerLocation(data.workerLocation);
+      const unsubscribe = onSnapshot(doc(db, 'order', order.id), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as Booking;
+          if (data.workerLocation) {
+            setWorkerLocation({
+              lat: Number(data.workerLocation.lat),
+              lng: Number(data.workerLocation.lng)
+            });
+          }
+        }
       });
       return () => unsubscribe();
     }
-  }, [order.id, userRole]);
+  }, [order?.id, userRole]);
 
   useEffect(() => {
-    if (order.customerLocation && workerLocation) {
+    if (order?.customerLocation && workerLocation) {
+      const d = calculateDistance(workerLocation.lat, workerLocation.lng, order.customerLocation.lat, order.customerLocation.lng);
+      setDistance(d);
       setEta(calculateETA(workerLocation.lat, workerLocation.lng, order.customerLocation.lat, order.customerLocation.lng));
     }
-  }, [order.customerLocation, workerLocation]);
+  }, [order?.customerLocation, workerLocation]);
 
-  if (!order.customerLocation || !workerLocation) return null;
+  if (!order) return <div className='p-10 text-center'>Loading Order Details...</div>;
+  if (!order.customerLocation) return <div className='p-10 text-center'>Waiting for location data...</div>;
+
+  const targetPhone = userRole === 'customer' ? order.workerPhone : order.customerPhone;
+  const msg = userRole === 'customer' ? "Hello, I'm waiting for my service." : "Hello, I'm on my way for your service.";
+
+  const handleWhatsApp = () => {
+    if (!targetPhone) return alert('Phone number not available');
+    const cleanPhone = targetPhone.replace(/\D/g, '');
+    window.open('https://wa.me/91' + cleanPhone + '?text=' + encodeURIComponent(msg), '_blank');
+  };
 
   return (
     <div className="space-y-4">
@@ -76,14 +107,20 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) =
         <MapContainer center={[order.customerLocation.lat, order.customerLocation.lng]} zoom={13} className="h-full w-full">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <Marker position={[order.customerLocation.lat, order.customerLocation.lng]} icon={redIcon} />
-          <Marker position={[workerLocation.lat, workerLocation.lng]} icon={blueIcon} />
-          <FitBounds customerLocation={order.customerLocation} workerLocation={workerLocation} />
+          {workerLocation && (
+            <>
+              <Marker position={[workerLocation.lat, workerLocation.lng]} icon={blueIcon} />
+              <FitBounds customerLocation={order.customerLocation} workerLocation={workerLocation} />
+            </>
+          )}
         </MapContainer>
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <h3 className="text-xl font-bold text-gray-900 mb-2">
-          {userRole === 'customer' ? `Professional arriving in ~${eta} mins` : `Customer is ~${eta} mins away`}
+          {distance !== null && distance < 0.1 
+            ? 'Professional has arrived!' 
+            : (userRole === 'customer' ? `Professional arriving in ~${eta} mins` : `Customer is ~${eta} mins away`)}
         </h3>
         
         <div className="flex gap-4 mt-6">
@@ -95,12 +132,15 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) =
               <Navigation size={18} /> Navigate
             </button>
           )}
-          <a href="tel:+1234567890" className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all">
+          <a href={`tel:+91${targetPhone}`} className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all">
             <Phone size={18} /> Call
           </a>
-          <a href="sms:+1234567890" className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all">
-            <MessageSquare size={18} /> Message
-          </a>
+          <button 
+            onClick={handleWhatsApp}
+            className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all"
+          >
+            <MessageSquare size={18} /> WhatsApp
+          </button>
         </div>
       </div>
     </div>

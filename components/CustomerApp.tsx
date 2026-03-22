@@ -474,6 +474,39 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     </motion.div>
   );
 
+  const renderTracking = () => {
+    const trackableOrder = activeOrder || orders.find(o => o.status === 'assigned' || o.status === 'on_the_way' || (o.status === 'completed' && !o.isRated));
+    if (!trackableOrder) {
+      return (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="pb-32 bg-gray-50 min-h-screen flex flex-col items-center justify-center px-6 text-center"
+        >
+          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6">
+            <MapPin size={40} className="text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Nothing to track right now</h2>
+          <p className="text-gray-500 mb-8">Book a service to see your professional's live location here!</p>
+          <button 
+            onClick={() => setView(AppView.HOME)}
+            className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
+          >
+            Book a Service
+          </button>
+        </motion.div>
+      );
+    }
+    return (
+      <Tracking 
+        key="tracking" 
+        order={trackableOrder}
+        userRole="customer"
+        onBack={() => setView(AppView.ORDERS)} 
+      />
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
       <div className="bg-white min-h-screen">
@@ -484,14 +517,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           {view === AppView.ORDERS && renderOrders()}
           {view === AppView.CART && <Cart onClose={() => setView(AppView.SUB_CATEGORY)} setView={setView} />}
           {view === AppView.CHECKOUT && <Checkout onClose={() => setView(AppView.CART)} setView={setView} setActiveOrder={setActiveOrder} />}
-          {view === AppView.TRACKING && activeOrder && (
-            <Tracking 
-              key="tracking" 
-              order={activeOrder}
-              userRole="customer"
-              onBack={() => setView(AppView.ORDERS)} 
-            />
-          )}
+          {view === AppView.TRACKING && renderTracking()}
           {view === AppView.ACCOUNT && user && (
             <Account 
               key="account" 
@@ -535,11 +561,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           { id: AppView.HOME, icon: Home, label: 'Home' },
           { id: AppView.ORDERS, icon: ClipboardList, label: 'Bookings' },
           { id: AppView.CART, icon: ShoppingCart, label: 'Cart' },
+          { id: AppView.TRACKING, icon: MapPin, label: 'Track' },
           { id: AppView.ACCOUNT, icon: UserIcon, label: 'Profile' },
         ].map((item) => (
           <button 
             key={item.id}
-            onClick={() => setView(item.id)} 
+            onClick={() => {
+              if (item.id === AppView.TRACKING) {
+                setActiveOrder(null);
+              }
+              setView(item.id);
+            }} 
             className={`flex flex-col items-center gap-1.5 py-1 flex-1 transition-all ${view === item.id ? 'text-red-600' : 'text-gray-400'}`}
           >
             <item.icon size={22} strokeWidth={view === item.id ? 2.5 : 2} />
