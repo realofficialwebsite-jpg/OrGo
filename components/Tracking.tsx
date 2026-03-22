@@ -21,6 +21,22 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [workerData, setWorkerData] = useState<any>(null);
+  const [customerData, setCustomerData] = useState<any>(null);
+
+  React.useEffect(() => {
+    if (!order) return;
+    if (order.assignedWorkerId) {
+      getDoc(doc(db, 'users', order.assignedWorkerId)).then(snap => {
+        if (snap.exists()) setWorkerData(snap.data());
+      });
+    }
+    if (order.userId) {
+      getDoc(doc(db, 'users', order.userId)).then(snap => {
+        if (snap.exists()) setCustomerData(snap.data());
+      });
+    }
+  }, [order?.assignedWorkerId, order?.userId]);
 
   if (!order) return (
     <div className="flex flex-col items-center justify-center h-screen p-6 text-center">
@@ -136,7 +152,7 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
           <div className="flex items-center gap-5">
             <div className="relative">
               <img 
-                src={isWorker ? "https://picsum.photos/seed/customer/200" : (order.workerPhoto || "https://picsum.photos/seed/pro/200")} 
+                src={isWorker ? (customerData?.photo || "https://picsum.photos/seed/customer/200") : (workerData?.photo || "https://picsum.photos/seed/pro/200")} 
                 alt="Profile" 
                 className="w-16 h-16 rounded-2xl object-cover shadow-sm border border-gray-100" 
                 referrerPolicy="no-referrer"
@@ -145,14 +161,16 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
             </div>
             <div>
               <h2 className="text-xl font-display font-bold text-gray-900">
-                {isWorker ? (order.customerName || 'Customer') : (order.workerName || 'Professional')}
+                {isWorker ? (customerData?.name || 'Customer') : (workerData?.name || 'Professional')}
               </h2>
               <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mt-1.5">
                 {isWorker ? (
                   <span className="truncate max-w-[180px]">{order.address}</span>
                 ) : (
                   <>
-                    <span className="flex items-center gap-1 text-amber-500"><Star size={14} fill="currentColor" /> 4.8</span>
+                    <span className="flex items-center gap-1 text-amber-500">
+                      <Star size={14} fill="currentColor" /> {workerData?.rating?.toFixed(1) || '4.8'}
+                    </span>
                     <span className="opacity-30">•</span>
                     <span>{order?.cartItems?.[0]?.title || 'Service Expert'}</span>
                   </>

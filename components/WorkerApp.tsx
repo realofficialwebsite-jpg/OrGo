@@ -250,18 +250,24 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{order.scheduledDate}</p>
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => handleOrderAction(order.id, 'accept')}
+                  className="flex-1 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 active:scale-95 transition-all"
+                >
+                  Accept
+                </button>
                 <button 
                   onClick={() => setSelectedRequest(order)}
-                  className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 active:scale-95 transition-all"
                 >
-                  <Check size={16} strokeWidth={3} /> View Details
+                  Details
                 </button>
                 <button 
                   onClick={() => handleOrderAction(order.id, 'reject')}
-                  className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="flex-1 py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 active:scale-95 transition-all"
                 >
-                  <X size={16} strokeWidth={3} /> Reject
+                  Reject
                 </button>
               </div>
             </motion.div>
@@ -271,18 +277,18 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         {/* Request Details Modal */}
         <AnimatePresence>
           {selectedRequest && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <motion.div 
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                className="bg-white w-full max-w-lg rounded-[40px] overflow-hidden shadow-2xl"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
               >
-                <div className="p-8">
-                  <div className="flex justify-between items-start mb-8">
+                <div className="p-6 overflow-y-auto no-scrollbar">
+                  <div className="flex justify-between items-start mb-6">
                     <div>
-                      <h2 className="text-2xl font-display font-bold text-gray-900">Order Details</h2>
-                      <p className="text-gray-500 font-medium mt-1">Review before accepting</p>
+                      <h2 className="text-2xl font-display font-bold text-gray-900">Order Context</h2>
+                      <p className="text-sm text-gray-500 font-medium mt-1">Review all details before deciding</p>
                     </div>
                     <button 
                       onClick={() => setSelectedRequest(null)}
@@ -292,55 +298,70 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                     </button>
                   </div>
 
-                  <div className="space-y-6 mb-8">
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
-                        <UserIcon size={24} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</p>
-                        <p className="font-bold text-gray-900">{selectedRequest.customerName || 'User'}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
-                        <MapPin size={24} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Service Address</p>
-                        <p className="font-bold text-gray-900 text-sm">{selectedRequest.address}</p>
+                  <div className="space-y-6">
+                    {/* Client Info */}
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Client Information</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-emerald-600">
+                          <UserIcon size={20} />
+                        </div>
+                        <p className="font-bold text-gray-900">{selectedRequest.customerName || 'Customer'}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
-                        <Clock size={24} />
+                    {/* Job Info */}
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Job Information</p>
+                      <h4 className="font-bold text-gray-900 mb-1">{selectedRequest.cartItems[0].title}</h4>
+                      {selectedRequest.instructions && (
+                        <p className="text-sm text-gray-600 mb-3">{selectedRequest.instructions}</p>
+                      )}
+                      {selectedRequest.imageUrl && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-gray-200">
+                          <img src={selectedRequest.imageUrl} alt="Problem" className="w-full h-40 object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Logistics */}
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Logistics</p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <MapPin size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                          <p className="text-sm font-medium text-gray-700">{selectedRequest.address}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Clock size={16} className="text-emerald-600 shrink-0" />
+                          <p className="text-sm font-medium text-gray-700">
+                            {selectedRequest.isInstant ? 'Instant Service' : `Scheduled: ${selectedRequest.scheduledDate} at ${selectedRequest.scheduledTime}`}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Service Type</p>
-                        <p className="font-bold text-gray-900">{selectedRequest.cartItems[0].title}</p>
-                      </div>
+                    </div>
+
+                    {/* Earnings */}
+                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Estimated Earnings</p>
+                      <p className="text-2xl font-bold text-emerald-700">₹{selectedRequest.grandTotal}</p>
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={() => setSelectedRequest(null)}
-                      className="flex-1 py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all"
-                    >
-                      Close
-                    </button>
-                    <button 
-                      onClick={() => {
-                        handleOrderAction(selectedRequest.id!, 'accept');
-                        setSelectedRequest(null);
-                      }}
-                      className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
-                    >
-                      Accept Request
-                    </button>
-                  </div>
+                <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
+                  <button 
+                    onClick={() => handleOrderAction(selectedRequest.id!, 'reject')}
+                    className="flex-1 py-4 bg-white text-red-600 border border-red-100 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all"
+                  >
+                    Reject
+                  </button>
+                  <button 
+                    onClick={() => handleOrderAction(selectedRequest.id!, 'accept')}
+                    className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
+                  >
+                    Accept Job
+                  </button>
                 </div>
               </motion.div>
             </div>
