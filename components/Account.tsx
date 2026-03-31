@@ -16,11 +16,18 @@ import {
   Share2,
   Info,
   ArrowLeft,
-  X
+  X,
+  Wrench,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Layout,
+  Edit2
 } from 'lucide-react';
 import { AppView, UserProfile } from '../src/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { WorkerRegistration } from './WorkerRegistration';
+import { APP_CATEGORIES } from '../src/constants';
 
 interface AccountProps {
   user: User;
@@ -41,6 +48,24 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
     photo: '',
     phone: ''
   });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editData, setEditData] = useState({ name: '', email: '' });
+  
+  // Hooks moved from sub-render functions to comply with Rules of Hooks
+  const [editingAddress, setEditingAddress] = useState<{data: any, index: number} | null>(null);
+  const [addressFormData, setAddressFormData] = useState({
+    id: '',
+    name: '',
+    phone: '',
+    flatNo: '',
+    street: '',
+    landmark: '',
+    city: '',
+    pincode: '',
+    state: '',
+    type: 'Home' as 'Home' | 'Work' | 'Other'
+  });
+  const [savingAddress, setSavingAddress] = useState(false);
 
   const fetchProfile = async () => {
     if (initialProfile) {
@@ -68,6 +93,57 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
     fetchProfile();
   }, [user.uid]);
 
+  useEffect(() => {
+    if (profile) {
+      setEditData({ name: profile.name, email: profile.email });
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (activeSubView === 'add_address') {
+      setEditingAddress(null);
+      setAddressFormData({
+        id: '',
+        name: '',
+        phone: '',
+        flatNo: '',
+        street: '',
+        landmark: '',
+        city: '',
+        pincode: '',
+        state: '',
+        type: 'Home'
+      });
+    }
+  }, [activeSubView]);
+
+  useEffect(() => {
+    if (editingAddress) {
+      setAddressFormData(editingAddress.data);
+    }
+  }, [editingAddress]);
+
+  const handleUpdateProfile = async () => {
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        name: editData.name,
+        email: editData.email
+      });
+      setIsEditingProfile(false);
+      onUpdateProfile();
+      fetchProfile();
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    }
+  };
+
+  const getDisplayPhone = () => {
+    if (profile.addresses && profile.addresses.length > 0) {
+      return profile.addresses[0].phone || profile.phone || 'No phone added';
+    }
+    return profile.phone || 'Add Mobile Number';
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     onLogout();
@@ -81,6 +157,14 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
       <h2 className="text-xl font-bold text-gray-900">{title}</h2>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <RefreshCw className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
 
   const renderSavedAddresses = () => {
     const addresses = profile.addresses || [];
@@ -96,6 +180,10 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
         console.error('Error deleting address:', error);
       }
     };
+
+    if (editingAddress) {
+      return renderAddAddress(editingAddress.data, editingAddress.index);
+    }
 
     return (
       <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="h-full">
@@ -116,16 +204,30 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
                     <MapPin size={20} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900">{addr.type || 'Address'}</h4>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">{addr.fullAddress}</p>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-gray-900">{addr.type || 'Address'}</h4>
+                      {addr.name && <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-bold uppercase">{addr.name}</span>}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                      {addr.flatNo}, {addr.street}, {addr.landmark && `${addr.landmark}, `}{addr.city}, {addr.state} - {addr.pincode}
+                    </p>
+                    {addr.phone && <p className="text-[10px] text-gray-400 mt-1 font-bold">Phone: {addr.phone}</p>}
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleDeleteAddress(index)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex gap-1">
+                  <button 
+                    onClick={() => setEditingAddress({ data: addr, index })}
+                    className="p-2 text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteAddress(index)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -141,32 +243,45 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
     );
   };
 
-  const renderAddAddress = () => {
-    const [type, setType] = useState('Home');
-    const [fullAddress, setFullAddress] = useState('');
-    const [saving, setSaving] = useState(false);
-
+  const renderAddAddress = (editAddress?: any, editIndex?: number) => {
     const handleSave = async () => {
-      if (!fullAddress) return alert('Please enter full address');
-      setSaving(true);
+      if (!addressFormData.flatNo || !addressFormData.street || !addressFormData.city || !addressFormData.pincode) {
+        return alert('Please fill in all required fields (Flat No, Street, City, Pincode)');
+      }
+      setSavingAddress(true);
       try {
-        const newAddress = { type, fullAddress, createdAt: new Date().toISOString() };
-        const currentAddresses = profile.addresses || [];
+        const currentAddresses = [...(profile.addresses || [])];
+        if (editIndex !== undefined) {
+          currentAddresses[editIndex] = { 
+            ...addressFormData, 
+            id: addressFormData.id || currentAddresses[editIndex].id,
+            updatedAt: new Date().toISOString() 
+          };
+        } else {
+          const newAddress = { 
+            ...addressFormData, 
+            id: Math.random().toString(36).substr(2, 9),
+            createdAt: new Date().toISOString() 
+          };
+          currentAddresses.push(newAddress);
+        }
+ 
         await updateDoc(doc(db, 'users', user.uid), { 
-          addresses: [...currentAddresses, newAddress] 
+          addresses: currentAddresses 
         });
         await fetchProfile();
         setActiveSubView('addresses');
+        setEditingAddress(null);
       } catch (error) {
         console.error('Error saving address:', error);
       } finally {
-        setSaving(false);
+        setSavingAddress(false);
       }
     };
-
+ 
     return (
-      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="h-full">
-        {renderSubViewHeader('Add New Address')}
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="h-full pb-10">
+        {renderSubViewHeader(editIndex !== undefined ? 'Edit Address' : 'Add New Address')}
         
         <div className="space-y-6">
           <div>
@@ -175,31 +290,112 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
               {['Home', 'Work', 'Other'].map(t => (
                 <button
                   key={t}
-                  onClick={() => setType(t)}
-                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${type === t ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white border border-gray-100 text-gray-500'}`}
+                  onClick={() => setAddressFormData((prev: any) => ({ ...prev, type: t as any }))}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${addressFormData.type === t ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white border border-gray-100 text-gray-500'}`}
                 >
                   {t}
                 </button>
               ))}
             </div>
           </div>
-
+ 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Receiver Name</label>
+              <input
+                type="text"
+                value={addressFormData.name}
+                onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. John Doe"
+                className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Phone Number</label>
+              <input
+                type="tel"
+                value={addressFormData.phone}
+                onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, phone: e.target.value }))}
+                placeholder="10-digit number"
+                className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+ 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Flat / House No.</label>
+              <input
+                type="text"
+                value={addressFormData.flatNo}
+                onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, flatNo: e.target.value }))}
+                placeholder="e.g. A-101"
+                className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Pincode</label>
+              <input
+                type="text"
+                value={addressFormData.pincode}
+                onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, pincode: e.target.value }))}
+                placeholder="6-digit pincode"
+                className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+ 
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Full Address</label>
-            <textarea
-              value={fullAddress}
-              onChange={(e) => setFullAddress(e.target.value)}
-              placeholder="House No, Building Name, Street, Area..."
-              className="w-full p-5 bg-white border border-gray-100 rounded-3xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none h-32"
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Street / Area</label>
+            <input
+              type="text"
+              value={addressFormData.street}
+              onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, street: e.target.value }))}
+              placeholder="e.g. MG Road, Sector 5"
+              className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
-
+ 
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Landmark (Optional)</label>
+            <input
+              type="text"
+              value={addressFormData.landmark}
+              onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, landmark: e.target.value }))}
+              placeholder="e.g. Near City Mall"
+              className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
+ 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">City</label>
+              <input
+                type="text"
+                value={addressFormData.city}
+                onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, city: e.target.value }))}
+                placeholder="e.g. Mumbai"
+                className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">State</label>
+              <input
+                type="text"
+                value={addressFormData.state}
+                onChange={(e) => setAddressFormData((prev: any) => ({ ...prev, state: e.target.value }))}
+                placeholder="e.g. Maharashtra"
+                className="w-full p-4 bg-white border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+ 
           <button 
             onClick={handleSave}
-            disabled={saving}
+            disabled={savingAddress}
             className="w-full py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
           >
-            {saving ? 'Saving...' : 'Save Address'}
+            {savingAddress ? 'Saving...' : (editIndex !== undefined ? 'Update Address' : 'Save Address')}
           </button>
         </div>
       </motion.div>
@@ -229,23 +425,67 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
 
   return (
     <div className="pb-24">
-      <div className="bg-white p-6 border-b border-gray-100">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Account</h1>
-        
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <UserIcon className="text-primary" size={20} />
-            <span className="font-bold text-gray-900">{profile.name}</span>
+      <div className="bg-white p-8 border-b border-gray-100 text-center">
+        <div className="relative inline-block mb-4">
+          <div className="w-24 h-24 bg-primary/10 rounded-[32px] flex items-center justify-center text-primary border-4 border-white shadow-xl overflow-hidden">
+            {profile.photo ? (
+              <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover" />
+            ) : (
+              <UserIcon size={40} />
+            )}
           </div>
-          <div className="flex items-center gap-3">
-            <Mail className="text-primary" size={20} />
-            <span className="text-gray-600">{profile.email}</span>
-          </div>
-          <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-xl border border-primary/10">
-            <Phone className="text-primary" size={20} />
-            <span className="font-bold text-primary">{profile.phone || 'Add Mobile Number'}</span>
-          </div>
+          <button className="absolute -bottom-2 -right-2 p-2 bg-white rounded-xl shadow-lg border border-gray-100 text-primary">
+            <Edit2 size={16} />
+          </button>
         </div>
+
+        {isEditingProfile ? (
+          <div className="space-y-4 max-w-xs mx-auto">
+            <input
+              type="text"
+              value={editData.name}
+              onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+              className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-center font-bold text-lg focus:ring-2 focus:ring-primary/20 outline-none"
+              placeholder="Your Name"
+            />
+            <input
+              type="email"
+              value={editData.email}
+              onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+              className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-center text-gray-600 focus:ring-2 focus:ring-primary/20 outline-none"
+              placeholder="Your Email"
+            />
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setIsEditingProfile(false)}
+                className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUpdateProfile}
+                className="flex-1 py-2 bg-primary text-white rounded-xl font-bold text-sm"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">{profile.name}</h1>
+            <p className="text-gray-500 mb-6 flex items-center justify-center gap-2">
+              {profile.email}
+              <button onClick={() => setIsEditingProfile(true)} className="text-primary p-1">
+                <Edit2 size={14} />
+              </button>
+            </p>
+            
+            <div className="inline-flex items-center gap-3 bg-primary/5 px-6 py-3 rounded-2xl border border-primary/10">
+              <Phone className="text-primary" size={18} />
+              <span className="font-bold text-primary">{getDisplayPhone()}</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="p-6 space-y-2">
@@ -253,13 +493,13 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
           { icon: MapPin, label: 'Saved Addresses', id: 'addresses' },
           { icon: Heart, label: 'Favorites', id: 'favorites' },
           profile.role === 'professional' ? (
-            { icon: UserIcon, label: 'Switch to Worker Mode', id: 'switch_worker' }
+            { icon: RefreshCw, label: 'Switch to Worker Mode', id: 'switch_worker' }
           ) : (
             { icon: ShieldCheck, label: 'Join as a Professional', id: 'professional' }
           ),
           { icon: HelpCircle, label: 'Help & Support', id: 'help' },
           { icon: Info, label: 'About OrGo', id: 'about' },
-        ].map((item) => (
+        ].filter(Boolean).map((item: any) => (
           <button
             key={item.id}
             onClick={() => {

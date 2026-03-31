@@ -17,14 +17,27 @@ import {
   ArrowLeft,
   Minus,
   Plus,
+  Zap,
+  Wrench,
+  Brush,
+  Hammer,
+  Droplets,
+  Wind,
   CheckCircle2,
   RefreshCw,
   Trash2,
   ShoppingCart,
-  X
+  MessageSquare,
+  Navigation,
+  X,
+  Send,
+  Bot,
+  Heart
 } from 'lucide-react';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { db } from '../src/firebase';
 import { User } from 'firebase/auth';
-import { AppView, Category, SubCategory, UserProfile, Booking } from '../src/types';
+import { AppView, Category, SubCategory, UserProfile, Booking, ServiceItem } from '../src/types';
 import { APP_CATEGORIES } from '../src/constants';
 import { useCart } from '../src/CartContext';
 import { Tracking } from './Tracking';
@@ -32,6 +45,80 @@ import { Account } from './Account';
 import { Cart } from './Cart';
 import { Checkout } from './Checkout';
 import { EditProfileModal } from './EditProfileModal';
+import { Chatbot } from './Chatbot';
+// import { AnimatedPromoHeader } from './AnimatedPromoHeader';
+
+const Image = ({ source, style, resizeMode }: { source: { uri: string }, style?: any, resizeMode?: 'cover' | 'contain' }) => {
+  const fallback = 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800';
+  return (
+    <img 
+      src={source.uri || fallback} 
+      style={{ 
+        ...style, 
+        objectFit: resizeMode === 'cover' ? 'cover' : 'contain' 
+      }} 
+      onError={(e) => {
+        (e.target as HTMLImageElement).src = fallback;
+      }}
+      referrerPolicy="no-referrer"
+      alt=""
+    />
+  );
+};
+
+const ServiceCard = ({ item, addToCart, removeFromCart, getItemQuantity }: { 
+  item: ServiceItem, 
+  addToCart: (item: ServiceItem) => void, 
+  removeFromCart: (id: string) => void, 
+  getItemQuantity: (id: string) => number 
+}) => {
+  return (
+    <div className="flex items-start justify-between p-5 bg-white rounded-[32px] border border-gray-50 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex-1 pr-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-0.5 bg-green-50 px-2 py-0.5 rounded-full">
+            <Star size={10} className="text-green-600 fill-green-600" />
+            <span className="text-[10px] font-black text-green-700">{item.rating}</span>
+          </div>
+          <span className="text-[10px] text-gray-400 font-medium">{item.reviews} reviews</span>
+        </div>
+        <h4 className="text-sm font-bold text-gray-900 mb-1 group-hover:text-red-600 transition-colors">{item.title}</h4>
+        <p className="text-base font-black text-gray-900 mb-3">₹{item.price}</p>
+        <ul className="space-y-1.5">
+          {item.descriptionPoints.slice(0, 3).map((point, idx) => (
+            <li key={idx} className="flex items-start gap-2 text-[12px] text-gray-500 font-medium leading-relaxed">
+              <div className="w-1 h-1 rounded-full bg-gray-300 mt-2 shrink-0" />
+              {point}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="w-32 flex flex-col items-center gap-3">
+        <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+          <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 160 }} resizeMode='cover' />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+        </div>
+        
+        <div className="w-full px-2" onClick={(e) => e.stopPropagation()}>
+          {getItemQuantity(item.id) > 0 ? (
+            <div className="flex items-center justify-between w-full bg-red-50 rounded-xl p-1 border border-red-100">
+              <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-red-600 shadow-sm"><Minus size={16} /></button>
+              <span className="text-sm font-bold text-red-600">{getItemQuantity(item.id)}</span>
+              <button onClick={() => addToCart(item)} className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-red-600 shadow-sm"><Plus size={16} /></button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => addToCart(item)} 
+              className="w-full py-2.5 bg-white border-2 border-gray-100 rounded-xl text-red-600 text-sm font-black shadow-sm hover:border-red-100 transition-all"
+            >
+              ADD
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface CustomerAppProps {
   user: User;
@@ -41,10 +128,94 @@ interface CustomerAppProps {
   orders: Booking[];
   loadingOrders: boolean;
   fetchOrders: () => Promise<void>;
-  handleCancelOrder: (order: Booking) => Promise<void>;
+  handleCancelOrder: (order: Booking, reason?: string) => Promise<void>;
   cancelling: boolean;
   setActiveMode: (mode: 'customer' | 'worker') => void;
 }
+
+const CancellationModal: React.FC<{
+  order: Booking;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  loading: boolean;
+}> = ({ order, onClose, onConfirm, loading }) => {
+  const [reason, setReason] = useState('');
+  const [otherReason, setOtherReason] = useState('');
+  const reasons = [
+    'Wait time is too long',
+    'Professional is not responding',
+    'Found a better price elsewhere',
+    'Changed my mind',
+    'Booked by mistake',
+    'Other'
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
+    >
+      <motion.div 
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-8 overflow-hidden"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Cancel Booking</h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        <p className="text-gray-500 text-sm mb-6 font-medium">Please tell us why you want to cancel. This helps us improve our service.</p>
+
+        <div className="space-y-3 mb-8">
+          {reasons.map((r) => (
+            <button
+              key={r}
+              onClick={() => setReason(r)}
+              className={`w-full text-left p-4 rounded-2xl border-2 transition-all font-bold text-sm ${
+                reason === r 
+                  ? 'border-red-600 bg-red-50 text-red-600' 
+                  : 'border-gray-100 hover:border-gray-200 text-gray-700'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+
+        {reason === 'Other' && (
+          <textarea
+            value={otherReason}
+            onChange={(e) => setOtherReason(e.target.value)}
+            placeholder="Please specify your reason..."
+            className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-red-600 focus:outline-none text-sm font-medium mb-8 min-h-[100px]"
+          />
+        )}
+
+        <div className="flex gap-4">
+          <button 
+            onClick={onClose}
+            className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors"
+          >
+            Go Back
+          </button>
+          <button 
+            disabled={!reason || (reason === 'Other' && !otherReason) || loading}
+            onClick={() => onConfirm(reason === 'Other' ? otherReason : reason)}
+            className="flex-[2] py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+          >
+            {loading ? <RefreshCw size={18} className="animate-spin" /> : 'Confirm Cancellation'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
 
 export const CustomerApp: React.FC<CustomerAppProps> = ({
   user,
@@ -61,12 +232,164 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [view, setView] = useState<AppView>(AppView.HOME);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ServiceItem | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [orderToCancel, setOrderToCancel] = useState<Booking | null>(null);
   const [activeOrder, setActiveOrder] = useState<Booking | null>(null);
+  const [activeChatJob, setActiveChatJob] = useState<Booking | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+
+  useEffect(() => {
+    if (!activeChatJob) return;
+    
+    const q = query(
+      collection(db, 'messages'),
+      where('orderId', '==', activeChatJob.id),
+      orderBy('createdAt', 'asc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setChatMessages(msgs);
+    });
+    
+    return () => unsubscribe();
+  }, [activeChatJob]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !activeChatJob) return;
+    
+    try {
+      await addDoc(collection(db, 'messages'), {
+        orderId: activeChatJob.id,
+        senderId: user.uid,
+        senderName: profile?.name || 'Customer',
+        text: newMessage,
+        createdAt: serverTimestamp()
+      });
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
   const [showNotifications, setShowNotifications] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<any>(null);
+  const [activeChatOrder, setActiveChatOrder] = useState<Booking | null>(null);
+  const [isSelectingAddress, setIsSelectingAddress] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<string>('Detecting location...');
   const { cart, addToCart, removeFromCart, getItemQuantity, cartTotal } = useCart();
+
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [selectedFilter, setSelectedFilter] = useState('All');
+  const placeholders = ['Search for Plumbing', 'Search for AC Repair', 'Search for Home Cleaning', 'Search for Electrician'];
+
+  const [currentBanner, setCurrentBanner] = useState(0);
+  const promoBanners = [
+    {
+      id: 1,
+      title: 'Summer is Coming',
+      subtitle: 'Get your AC serviced now',
+      buttonText: 'Book AC Service',
+      color: 'from-blue-600 to-blue-800',
+      icon: <Wind size={80} className="text-white/10 absolute -right-4 -bottom-4 rotate-12" />,
+      categoryName: 'AC Repair',
+      image: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800'
+    },
+    {
+      id: 2,
+      title: 'Monsoon Special',
+      subtitle: 'Waterproofing & Leakage Fix',
+      buttonText: 'Book Plumbing',
+      color: 'from-cyan-600 to-cyan-800',
+      icon: <Droplets size={80} className="text-white/10 absolute -right-4 -bottom-4 rotate-12" />,
+      categoryName: 'Plumbing',
+      image: 'https://images.pexels.com/photos/342800/pexels-photo-342800.jpeg?auto=compress&cs=tinysrgb&w=800'
+    },
+    {
+      id: 3,
+      title: 'Deep Cleaning',
+      subtitle: 'Make your home shine',
+      buttonText: 'Book Cleaning Now',
+      color: 'from-purple-600 to-purple-800',
+      icon: <Sparkles size={80} className="text-white/10 absolute -right-4 -bottom-4 rotate-12" />,
+      categoryName: 'Cleaning',
+      image: 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=800'
+    }
+  ];
+
+  const [showChatbot, setShowChatbot] = useState(false);
+
+  useEffect(() => {
+    const pInterval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
+    }, 2000);
+
+    const bInterval = setInterval(() => {
+      setCurrentBanner((prev) => (prev + 1) % promoBanners.length);
+    }, 5000);
+
+    return () => {
+      clearInterval(pInterval);
+      clearInterval(bInterval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      setJustAdded(true);
+      const timer = setTimeout(() => setJustAdded(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cart.length]);
+
+  useEffect(() => {
+    // Try to get current location on mount
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser. Please enable it in settings to find services near you.');
+      setCurrentLocation('Poornima University, Jaipur');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+          const data = await response.json();
+          setCurrentLocation(data.display_name || 'Current Location');
+          if (!selectedAddress) {
+            setSelectedAddress({ type: 'Current Location', address: data.display_name });
+          }
+        } catch (error) {
+          console.error("Error fetching address:", error);
+          setCurrentLocation('Poornima University, Jaipur');
+        }
+      },
+      (error) => {
+        let errorMsg = 'An unknown error occurred.';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = 'User denied the request for Geolocation.';
+            alert('Location access denied. Please enable location permissions in your browser settings to see nearby services.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMsg = 'The request to get user location timed out.';
+            break;
+        }
+        console.error("Geolocation error:", errorMsg, error);
+        // Fallback to default location
+        setCurrentLocation('Poornima University, Jaipur');
+      },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+    );
+  }, []);
 
   useEffect(() => {
     setActiveOrder(prev => {
@@ -78,26 +401,47 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
   const handleCategoryClick = (category: Category) => {
     setSelectedCategory(category);
-    if (category.subCategories.length === 1) {
-      setSelectedSubCategory(category.subCategories[0]);
-      setView(AppView.SERVICE_DETAILS);
-    } else {
+    if (category.name === 'Appliances') {
       setView(AppView.SUB_CATEGORY);
+    } else {
+      setSelectedSubCategory(null); // Clear subcategory to show all items
+      setView(AppView.SERVICE_DETAILS);
     }
   };
 
   const handleSubCategoryClick = (subCategory: SubCategory) => {
     setSelectedSubCategory(subCategory);
-    setView(AppView.SERVICE_DETAILS);
+    if (selectedCategory?.name === 'Appliances') {
+      setView(AppView.DEVICE_SELECTION);
+    } else {
+      setView(AppView.SERVICE_DETAILS);
+    }
+  };
+
+  const handleItemClick = (item: ServiceItem) => {
+    setSelectedItem(item);
+    setView(AppView.ITEM_DETAILS);
   };
 
   // --- Renderers ---
 
   const renderHome = () => {
-    const categories = ['All', 'Home', 'Appliances', 'Vehicle', 'Outdoor'];
-    const filteredServices = activeCategory === 'All' 
-      ? APP_CATEGORIES 
-      : APP_CATEGORIES.filter(s => s.category === activeCategory);
+    const displayAddress = selectedAddress 
+      ? (selectedAddress.type === 'Current Location' ? 'Current Location' : selectedAddress.type)
+      : 'Select Location';
+    
+    const displaySubAddress = selectedAddress
+      ? (selectedAddress.type === 'Current Location' ? currentLocation : `${selectedAddress.flatNo}, ${selectedAddress.street}, ${selectedAddress.city}`)
+      : 'Tap to set your booking address';
+
+    const enhancedCategories = APP_CATEGORIES.map(cat => {
+      return { ...cat };
+    });
+
+    const filterOptions = ['All', ...Array.from(new Set(APP_CATEGORIES.map(c => c.category || 'Other')))];
+    const filteredCategories = selectedFilter === 'All' 
+      ? enhancedCategories 
+      : enhancedCategories.filter(c => (c.category || 'Other') === selectedFilter);
 
     return (
       <motion.div 
@@ -109,51 +453,22 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         {/* Location Header */}
         <div className="px-5 pt-6 pb-4 bg-white sticky top-0 z-30 border-b border-gray-50">
           <div className="flex items-center justify-between mb-5">
-            <div className="flex flex-col cursor-pointer group">
+            <div 
+              onClick={() => setIsSelectingAddress(true)}
+              className="flex flex-col cursor-pointer group"
+            >
               <div className="flex items-center gap-1.5">
                 <MapPin size={16} className="text-red-600" strokeWidth={2.5} />
-                <span className="text-sm font-bold text-gray-900 group-hover:text-red-600 transition-colors">Home</span>
+                <span className="text-sm font-bold text-gray-900 group-hover:text-red-600 transition-colors">
+                  {displayAddress}
+                </span>
                 <ChevronRight size={14} className="text-gray-400" />
               </div>
-              <p className="text-xs text-gray-500 font-medium truncate max-w-[220px] mt-0.5">B-12, Vaishali Nagar, Jaipur, Rajasthan 302021</p>
+              <p className="text-xs text-gray-500 font-medium truncate max-w-[220px] mt-0.5">
+                {displaySubAddress}
+              </p>
             </div>
             <div className="flex items-center gap-4 relative">
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                <Bell size={20} className="text-gray-700" strokeWidth={2.5} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-              </button>
-              
-              <AnimatePresence>
-                {showNotifications && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute top-12 right-0 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50"
-                  >
-                    <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                      <h3 className="font-bold text-gray-900">Notifications</h3>
-                      <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full">2 New</span>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      <div className="p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer">
-                        <p className="text-sm font-bold text-gray-900 mb-1">Booking Confirmed!</p>
-                        <p className="text-xs text-gray-500">Your AC Repair is scheduled for tomorrow at 10 AM.</p>
-                        <p className="text-[10px] text-gray-400 mt-2 font-medium">2 hours ago</p>
-                      </div>
-                      <div className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                        <p className="text-sm font-bold text-gray-900 mb-1">Special Offer</p>
-                        <p className="text-xs text-gray-500">Get 20% off on your next plumbing service. Use code PLUMB20.</p>
-                        <p className="text-[10px] text-gray-400 mt-2 font-medium">1 day ago</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
               <button 
                 onClick={() => setShowEditProfile(true)}
                 className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 hover:bg-gray-100 transition-colors"
@@ -163,136 +478,378 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative group">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-red-600 transition-colors">
-              <Search size={18} strokeWidth={2.5} />
+          {/* Search Bar & Chatbot */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 h-[52px]">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                <Search size={18} strokeWidth={2.5} />
+              </div>
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={placeholders[placeholderIndex]}
+                className="w-full h-full pl-11 pr-4 bg-gray-100 border-none rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:bg-white transition-all placeholder:transition-all placeholder:duration-500"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
-            <input 
-              type="text" 
-              placeholder="Search for 'AC Repair'..."
-              className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/10 focus:bg-white focus:border-red-600 transition-all"
-            />
+            <button 
+              onClick={() => setShowChatbot(true)}
+              className="w-[52px] h-[52px] bg-gray-100 rounded-2xl text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center shrink-0"
+              title="Chat with Assistant"
+            >
+              <Sparkles size={20} className="text-red-600" strokeWidth={2.5} />
+            </button>
           </div>
         </div>
 
-        <div className="space-y-8 pt-6">
-          {/* Hero Banner */}
-          <div className="px-5">
-            <motion.div 
-              initial={{ y: 10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="relative h-48 rounded-[32px] overflow-hidden group shadow-lg"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-red-600 via-red-700 to-red-900"></div>
-              <div className="relative h-full flex flex-col justify-center px-8">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest mb-4 w-fit border border-white/10">
-                  <Sparkles size={12} /> Special Offer
-                </div>
-                <h2 className="text-3xl font-bold text-white leading-tight mb-2">Up to 50% OFF<br/>on First Booking</h2>
-                <p className="text-white/70 text-sm font-medium">Professional services at your doorstep</p>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Categories */}
-          <div>
-            <div className="px-5 flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Service Categories</h3>
-              <button className="text-red-600 text-sm font-bold hover:underline">See all</button>
-            </div>
-            <div className="flex gap-4 overflow-x-auto no-scrollbar px-5 pb-4">
-              {categories.map((cat) => (
-                <button 
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all whitespace-nowrap border ${
-                    activeCategory === cat 
-                      ? 'bg-red-600 text-white border-red-600 shadow-lg shadow-red-600/20' 
-                      : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Services Grid */}
-          <div className="px-5">
-            <div className="grid grid-cols-2 gap-4">
-              <AnimatePresence mode="popLayout">
-                {filteredServices.map((service) => (
-                  <motion.div 
-                    key={service.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    whileHover={{ y: -5 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCategoryClick(service)}
-                    className="group relative bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm cursor-pointer"
+        {searchQuery.length > 1 ? (
+          renderSearchResults()
+        ) : (
+          <div className="space-y-8 pt-6">
+            {/* Carousel Promo Banner (Moved to top) */}
+            <div className="px-5">
+              <div className="relative h-60 rounded-[32px] overflow-hidden shadow-2xl shadow-black/5 cursor-pointer"
+                   onClick={() => {
+                     const cat = APP_CATEGORIES.find(c => c.name === promoBanners[currentBanner].categoryName);
+                     if (cat) handleCategoryClick(cat);
+                   }}>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentBanner}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.8 }}
+                    className="absolute inset-0 bg-gray-900"
                   >
-                    <div className="aspect-[4/5] relative">
-                      <img 
-                        src={service.image} 
-                        alt={service.name} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                      
-                      {service.tag && (
-                        <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[9px] font-bold text-red-600 uppercase tracking-wider shadow-sm">
-                          {service.tag}
-                        </div>
-                      )}
-                      
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <h4 className="text-white font-bold text-lg mb-0.5">{service.name}</h4>
-                        <div className="flex items-center justify-between">
-                          <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">Starts at ₹{service.priceStart}</p>
-                          <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20">
-                            <ChevronRight size={16} strokeWidth={3} />
-                          </div>
-                        </div>
+                    <motion.img 
+                      src={promoBanners[currentBanner].image} 
+                      alt="Promo" 
+                      initial={{ scale: 1.1 }}
+                      animate={{ scale: 1 }}
+                      transition={{ duration: 5 }}
+                      className="w-full h-full object-cover opacity-50" 
+                      referrerPolicy="no-referrer" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-8 flex flex-col justify-end">
+                      <div className="relative z-10">
+                        <h2 className="text-2xl font-bold text-white leading-tight mb-2 tracking-tight">
+                          {promoBanners[currentBanner].title}
+                        </h2>
+                        <p className="text-white/70 text-sm font-medium mb-6">
+                          {promoBanners[currentBanner].subtitle}
+                        </p>
+                        <button 
+                          className="px-8 py-3 bg-white text-gray-900 rounded-2xl font-bold text-xs tracking-widest shadow-xl hover:bg-gray-100 transition-colors"
+                        >
+                          {promoBanners[currentBanner].buttonText}
+                        </button>
                       </div>
                     </div>
                   </motion.div>
-                ))}
-              </AnimatePresence>
+                </AnimatePresence>
+                
+                {/* Dots */}
+                {promoBanners.length > 1 && (
+                  <div className="absolute top-8 right-8 flex gap-1.5 z-20">
+                    {promoBanners.map((_, idx) => (
+                      <div 
+                        key={idx}
+                        className={`h-1 rounded-full transition-all duration-500 ${idx === currentBanner ? 'w-6 bg-white' : 'w-1.5 bg-white/30'}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Trust Badges */}
-          <div className="bg-gray-50 py-10 px-5 grid grid-cols-3 gap-4 border-y border-gray-100">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
-                <ShieldCheck size={24} strokeWidth={2.5} />
+            {/* Browse by Type & Grid */}
+            <div className="px-5">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Browse by Type</h3>
+              
+              {/* Filter Pills */}
+              <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar -mx-5 px-5 mb-2">
+                {filterOptions.map(option => (
+                  <button
+                    key={option}
+                    onClick={() => setSelectedFilter(option)}
+                    className={`px-5 py-2.5 rounded-full whitespace-nowrap font-bold text-sm transition-all ${
+                      selectedFilter === option
+                        ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
               </div>
-              <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">OrGo Safe<br/>Guarantee</span>
+
+              {/* 2-Column Service Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                {filteredCategories.map((cat, index) => (
+                  <motion.div
+                    key={cat.id}
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ delay: index * 0.05, type: "spring", stiffness: 100 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleCategoryClick(cat)}
+                    className="relative aspect-[4/5] rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <img 
+                      src={cat.imageUrl || `https://source.unsplash.com/featured/800x600?${cat.name.replace(/\s+/g, '')},repair,professional`} 
+                      alt={cat.name} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                      style={{ width: '100%', height: '100%' }}
+                      referrerPolicy="no-referrer" 
+                    />
+                    
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    
+                    {/* Wishlist Button */}
+                    <button className="absolute top-4 right-4 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors z-10">
+                      <Heart size={16} strokeWidth={2.5} />
+                    </button>
+
+                    {/* Tag */}
+                    {cat.tag && (
+                      <div className="absolute top-4 left-4 bg-white px-3 py-1 rounded-full text-[10px] font-black text-red-600 uppercase tracking-wider shadow-sm">
+                        {cat.tag}
+                      </div>
+                    )}
+
+                    {/* Content */}
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <h4 className="text-white font-bold text-lg leading-tight mb-1">{cat.name}</h4>
+                      <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">
+                        Starts at ₹{cat.priceStart}
+                      </p>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
+                      <ChevronRight size={16} strokeWidth={3} />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
-                <Star size={24} strokeWidth={2.5} />
+
+            {/* Offers & Discounts Sliding Banner */}
+            <div className="mt-12 px-5">
+              <div className="flex justify-between items-end mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 tracking-tight">Exclusive Offers</h3>
+                  <p className="text-sm text-gray-500 font-medium">Handpicked deals for you</p>
+                </div>
+                <button className="text-red-600 text-xs font-bold tracking-widest hover:underline">VIEW ALL</button>
               </div>
-              <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">4.8 Average<br/>Rating</span>
+              
+              <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar -mx-5 px-5 snap-x snap-mandatory">
+                {/* Offer 1 */}
+                <motion.div 
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    const cat = APP_CATEGORIES.find(c => c.id === '3');
+                    if (cat) handleCategoryClick(cat);
+                  }}
+                  className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
+                >
+                  <div className="h-40 relative">
+                    <img src="https://images.pexels.com/photos/6195129/pexels-photo-6195129.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Room Cleaning" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                      Save 5%
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                      Room cleaning starting at ₹399
+                    </h4>
+                    <p className="text-sm text-gray-500 font-medium mb-4">Professional deep cleaning service</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-600 tracking-widest">LIMITED TIME</span>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Offer 2 */}
+                <motion.div 
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    const cat = APP_CATEGORIES.find(c => c.id === '7');
+                    if (cat) handleCategoryClick(cat);
+                  }}
+                  className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
+                >
+                  <div className="h-40 relative">
+                    <img src="https://images.pexels.com/photos/2244746/pexels-photo-2244746.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Vehicle Repair" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <div className="absolute top-4 left-4 bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                      Best Value
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                      Vehicle repair & servicing
+                    </h4>
+                    <p className="text-sm text-gray-500 font-medium mb-4">Pay after 100% satisfaction</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-600 tracking-widest">TOP RATED</span>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Offer 3 */}
+                <motion.div 
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    const cat = APP_CATEGORIES.find(c => c.id === '9');
+                    if (cat) handleCategoryClick(cat);
+                  }}
+                  className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
+                >
+                  <div className="h-40 relative">
+                    <img src="https://images.pexels.com/photos/746496/pexels-photo-746496.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Packers and Movers" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <div className="absolute top-4 left-4 bg-purple-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                      New Launch
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                      Packers and movers
+                    </h4>
+                    <p className="text-sm text-gray-500 font-medium mb-4">Hassle-free shifting experience</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-purple-600 tracking-widest">BOOK NOW</span>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
             </div>
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
-                <Clock size={24} strokeWidth={2.5} />
+
+            {/* Trust Badges */}
+            <div className="bg-gray-50 py-10 px-5 grid grid-cols-3 gap-4 border-y border-gray-100 mt-8">
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
+                  <ShieldCheck size={24} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">OrGo Safe<br/>Guarantee</span>
               </div>
-              <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">On-Time<br/>Service</span>
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
+                  <Star size={24} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">4.8 Average<br/>Rating</span>
+              </div>
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
+                  <Clock size={24} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">On-Time<br/>Service</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </motion.div>
     );
   };
 
   const renderSubCategory = () => {
     if (!selectedCategory) return null;
+    
+    if (selectedCategory.name === 'Appliances') {
+      return (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="min-h-screen bg-white pb-32"
+        >
+          {/* Header */}
+          <div className="px-5 pt-6 pb-4 bg-white sticky top-0 z-30 border-b border-gray-50 flex items-center gap-4">
+            <button onClick={() => setView(AppView.HOME)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
+              <ArrowLeft size={24} className="text-gray-900" />
+            </button>
+            <h2 className="text-xl font-bold text-gray-900">{selectedCategory.name}</h2>
+          </div>
+
+          {/* Search Bar & Chatbot (Consistent with Home) */}
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 h-[52px]">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Search size={18} strokeWidth={2.5} />
+                </div>
+                <input 
+                  type="text" 
+                  placeholder="Search for appliances..."
+                  className="w-full h-full pl-11 pr-4 bg-gray-100 border-none rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:bg-white transition-all"
+                />
+              </div>
+              <button 
+                onClick={() => setShowChatbot(true)}
+                className="w-[52px] h-[52px] bg-gray-100 rounded-2xl text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center shrink-0"
+              >
+                <Sparkles size={20} className="text-red-600" strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+
+          <div className="px-5 space-y-6 mt-4">
+            {selectedCategory.subCategories.map((sub) => {
+              const isLarge = sub.title.includes('Large');
+              const bgImage = isLarge 
+                ? 'https://images.pexels.com/photos/5824485/pexels-photo-5824485.jpeg?auto=compress&cs=tinysrgb&w=800'
+                : 'https://images.pexels.com/photos/5591460/pexels-photo-5591460.jpeg?auto=compress&cs=tinysrgb&w=800';
+              const description = isLarge
+                ? 'Washing Machine, Fridge, TV & more'
+                : 'Microwave, RO, Laptops & more';
+
+              return (
+                <motion.div
+                  key={sub.id}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSubCategoryClick(sub)}
+                  className="relative h-[30vh] rounded-[32px] overflow-hidden shadow-lg cursor-pointer group"
+                >
+                    <img 
+                      src={bgImage || `https://source.unsplash.com/featured/800x600?${sub.title.replace(/\s+/g, '')},repair,professional`} 
+                      alt={sub.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                      style={{ width: '100%', height: '100%' }}
+                      referrerPolicy="no-referrer"
+                    />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+                  
+                  <div className="absolute inset-0 p-8 flex items-center justify-between">
+                    <div className="max-w-[70%]">
+                      <h3 className="text-white font-black text-2xl mb-2">{sub.title}</h3>
+                      <p className="text-gray-200 text-sm font-medium">{description}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20">
+                      <ChevronRight size={24} strokeWidth={3} />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div 
         initial={{ x: '100%' }}
@@ -314,14 +871,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               onClick={() => handleSubCategoryClick(sub)}
               className="flex flex-col items-center gap-3"
             >
-              <div className="w-full aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 flex items-center justify-center">
-                {sub.image ? (
-                  <img src={sub.image} alt={sub.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="text-red-600">
-                    <Home size={24} />
-                  </div>
-                )}
+              <div className="w-full aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 flex items-center justify-center relative">
+                    <img 
+                      src={sub.imageUrl || `https://source.unsplash.com/featured/800x600?${sub.title.replace(/\s+/g, '')},repair,professional`} 
+                      alt={sub.title} 
+                      className="w-full h-full object-cover" 
+                      style={{ width: '100%', height: '100%' }}
+                      referrerPolicy="no-referrer"
+                    />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
               </div>
               <span className="text-[11px] font-bold text-gray-900 text-center leading-tight">{sub.title}</span>
             </motion.div>
@@ -332,68 +890,334 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const renderServiceDetails = () => {
-    if (!selectedSubCategory) return null;
+    if (!selectedCategory) return null;
+    
+    // If selectedSubCategory is null, we show all items from the category
+    let itemsToShow = selectedSubCategory 
+      ? selectedSubCategory.items 
+      : selectedCategory.subCategories.flatMap(sc => sc.items);
+
+    if (selectedCategory.name === 'Appliances' && selectedDevice) {
+      itemsToShow = itemsToShow.filter(item => item.title.startsWith(selectedDevice + ":"));
+    }
+
+    const pageTitle = selectedDevice || (selectedSubCategory ? selectedSubCategory.title : selectedCategory.name);
+
     return (
       <motion.div 
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        className="min-h-screen bg-gray-50 pb-40"
+        className="min-h-screen bg-white pb-40"
       >
-        <div className="bg-white px-5 pt-6 pb-4 sticky top-0 z-30 border-b border-gray-50 flex items-center justify-between">
+        {/* Header */}
+        <div className="bg-white px-5 pt-6 pb-4 sticky top-0 z-30 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => {
-                if (selectedCategory && selectedCategory.subCategories.length === 1) {
-                  setView(AppView.HOME);
+                if (selectedCategory.name === 'Appliances') {
+                  if (selectedDevice) {
+                    setSelectedDevice(null);
+                    setView(AppView.DEVICE_SELECTION);
+                  } else {
+                    setView(AppView.SUB_CATEGORY);
+                  }
                 } else {
-                  setView(AppView.SUB_CATEGORY);
+                  setView(AppView.HOME);
                 }
               }} 
               className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
             >
               <ArrowLeft size={24} className="text-gray-900" />
             </button>
-            <h2 className="text-xl font-bold text-gray-900">{selectedSubCategory.title}</h2>
+            <h2 className="text-xl font-bold text-gray-900">{pageTitle}</h2>
           </div>
         </div>
-        <div className="p-5 space-y-4">
-          {selectedSubCategory.items.map((item) => (
-            <div key={item.id} className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm flex gap-4">
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-900 mb-1 leading-tight">{item.title}</h3>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-bold text-gray-700">
-                    <Star size={10} className="fill-gray-700" /> {item.rating}
+
+        {/* Search Bar & Chatbot (Consistent with Home) */}
+        <div className="px-5 py-4 bg-white">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 h-[52px]">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                <Search size={18} strokeWidth={2.5} />
+              </div>
+              <input 
+                type="text" 
+                placeholder={`Search in ${pageTitle}...`}
+                className="w-full h-full pl-11 pr-4 bg-gray-100 border-none rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:bg-white transition-all"
+              />
+            </div>
+            <button 
+              onClick={() => setShowChatbot(true)}
+              className="w-[52px] h-[52px] bg-gray-100 rounded-2xl text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center shrink-0"
+            >
+              <Sparkles size={20} className="text-red-600" strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+
+        <div className="divide-y divide-gray-100">
+          {itemsToShow.map((item) => (
+            <div key={item.id} onClick={() => handleItemClick(item)}>
+              <ServiceCard 
+                item={item} 
+                addToCart={addToCart} 
+                removeFromCart={removeFromCart} 
+                getItemQuantity={getItemQuantity} 
+              />
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderItemDetails = () => {
+    if (!selectedItem) return null;
+    return (
+      <motion.div 
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        className="min-h-screen bg-white pb-40"
+      >
+        <div className="relative h-72">
+          <img 
+            src={selectedItem.imageUrl || `https://source.unsplash.com/featured/800x600?${selectedItem.title.replace(/\s+/g, '')},repair,professional`} 
+            alt={selectedItem.title} 
+            className="w-full h-full object-cover" 
+            style={{ width: '100%', height: '100%' }}
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+          <button 
+            onClick={() => setView(AppView.SERVICE_DETAILS)}
+            className="absolute top-6 left-6 p-2 bg-white/20 backdrop-blur-md rounded-full text-white border border-white/20"
+          >
+            <ArrowLeft size={24} />
+          </button>
+        </div>
+
+        <div className="px-6 -mt-8 relative z-10">
+          <div className="bg-white rounded-[40px] p-8 shadow-xl border border-gray-50">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedItem.title}</h2>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 rounded-lg text-xs font-bold text-yellow-700">
+                    <Star size={14} className="fill-yellow-700" /> {selectedItem.rating}
                   </div>
-                  <span className="text-[10px] text-gray-400 font-medium">{item.reviews} reviews</span>
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">{selectedItem.reviews} Reviews</span>
                 </div>
-                <p className="text-sm font-bold text-gray-900 mb-4">₹{item.price}</p>
-                <ul className="space-y-2">
-                  {item.descriptionPoints.map((point, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-[11px] text-gray-500 font-medium">
-                      <div className="w-1 h-1 rounded-full bg-gray-300 mt-1.5 shrink-0" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-900">₹{selectedItem.price}</p>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Inclusive of all taxes</p>
+              </div>
+            </div>
+
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-4">Service Description</h3>
+                <ul className="space-y-4">
+                  {selectedItem.descriptionPoints.map((point, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-sm text-gray-600 leading-relaxed">
+                      <div className="w-2 h-2 rounded-full bg-red-600 mt-1.5 shrink-0" />
                       {point}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="w-28 flex flex-col items-center gap-3">
-                <div className="w-28 h-28 rounded-2xl overflow-hidden border border-gray-100">
-                  <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                </div>
-                {getItemQuantity(item.id) > 0 ? (
-                  <div className="flex items-center justify-between w-full bg-red-50 rounded-xl p-1 border border-red-100">
-                    <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-red-600 shadow-sm"><Minus size={16} /></button>
-                    <span className="text-sm font-bold text-red-600">{getItemQuantity(item.id)}</span>
-                    <button onClick={() => addToCart(item)} className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-red-600 shadow-sm"><Plus size={16} /></button>
+
+              <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-red-600 shadow-sm">
+                    <ShieldCheck size={20} />
                   </div>
-                ) : (
-                  <button onClick={() => addToCart(item)} className="w-full py-2.5 bg-white border border-gray-200 rounded-xl text-red-600 text-xs font-bold shadow-sm">ADD</button>
-                )}
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">OrGo Safe Guarantee</h4>
+                    <p className="text-[10px] text-gray-500 font-medium">Verified professionals & insurance covered</p>
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
+          </div>
+        </div>
+
+        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-6 bg-white/80 backdrop-blur-xl border-t border-gray-100 z-50">
+          {getItemQuantity(selectedItem.id) > 0 ? (
+            <div className="flex items-center gap-4">
+              <div className="flex-1 flex items-center justify-between bg-gray-100 rounded-2xl p-2">
+                <button onClick={() => removeFromCart(selectedItem.id)} className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-red-600 shadow-sm"><Minus size={20} /></button>
+                <span className="text-lg font-bold text-gray-900">{getItemQuantity(selectedItem.id)}</span>
+                <button onClick={() => addToCart(selectedItem)} className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-red-600 shadow-sm"><Plus size={20} /></button>
+              </div>
+              <button 
+                onClick={() => setView(AppView.CART)}
+                className="flex-[1.5] py-4 bg-red-600 text-white rounded-2xl font-bold shadow-lg shadow-red-600/20 active:scale-[0.98] transition-all"
+              >
+                Go to Cart
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => addToCart(selectedItem)}
+              className="w-full py-5 bg-red-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-red-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+            >
+              <ShoppingCart size={24} /> Book Now
+            </button>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderSearchResults = () => {
+    const results = APP_CATEGORIES.flatMap(category => 
+      category.subCategories.flatMap(sub => 
+        sub.items.filter(item => 
+          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          sub.title.toLowerCase().includes(searchQuery.toLowerCase())
+        ).map(item => ({
+          ...item,
+          categoryName: category.name,
+          categoryObj: category,
+          subCategoryObj: sub
+        }))
+      )
+    );
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="px-5 pt-4 space-y-4"
+      >
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-lg font-bold text-gray-900">Search Results</h3>
+          <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">{results.length} found</span>
+        </div>
+        
+        {results.length > 0 ? (
+          <div className="space-y-3">
+            {results.map((result, idx) => (
+              <motion.div
+                key={`${result.id}-${idx}`}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
+              >
+                <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 relative">
+                  <img 
+                    src={result.imageUrl || `https://source.unsplash.com/featured/800x600?${result.title.replace(/\s+/g, '')},repair,professional`} 
+                    alt={result.title} 
+                    className="w-full h-full object-cover" 
+                    style={{ width: '100%', height: '100%' }}
+                    referrerPolicy="no-referrer" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-gray-900 truncate">{result.title}</h4>
+                  <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider mt-0.5">in {result.categoryName}</p>
+                  <p className="text-xs text-gray-500 font-medium mt-1">₹{result.price}</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setSelectedCategory(result.categoryObj);
+                    setSelectedSubCategory(result.subCategoryObj);
+                    setSearchQuery('');
+                    setView(AppView.SERVICE_DETAILS);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors"
+                >
+                  View
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <Search size={32} className="text-gray-300" />
+            </div>
+            <h4 className="text-lg font-bold text-gray-900 mb-1">No results found</h4>
+            <p className="text-sm text-gray-500 font-medium">Try searching for something else</p>
+          </div>
+        )}
+      </motion.div>
+    );
+  };
+
+  const renderDeviceSelection = () => {
+    if (!selectedSubCategory) return null;
+
+    const devices = selectedSubCategory.title === 'Large Appliances' 
+      ? [
+          { name: 'Washing Machine', imageUrl: 'https://images.pexels.com/photos/5591460/pexels-photo-5591460.jpeg?auto=compress&cs=tinysrgb&w=400' },
+          { name: 'Refrigerator', imageUrl: 'https://images.pexels.com/photos/5824485/pexels-photo-5824485.jpeg?auto=compress&cs=tinysrgb&w=400' },
+          { name: 'Television', imageUrl: 'https://images.pexels.com/photos/5721865/pexels-photo-5721865.jpeg?auto=compress&cs=tinysrgb&w=400' }
+        ]
+      : [
+          { name: 'Microwave', imageUrl: 'https://images.pexels.com/photos/213162/pexels-photo-213162.jpeg?auto=compress&cs=tinysrgb&w=400' },
+          { name: 'Chimney', imageUrl: 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=400' },
+          { name: 'Stove', imageUrl: 'https://images.pexels.com/photos/2062426/pexels-photo-2062426.jpeg?auto=compress&cs=tinysrgb&w=400' },
+          { name: 'Laptop', imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=400' },
+          { name: 'Water Purifier/RO', imageUrl: 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=400' },
+          { name: 'Geyser', imageUrl: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?q=80&w=800' }
+        ];
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        className="min-h-screen bg-white pb-32"
+      >
+        {/* Header */}
+        <div className="px-5 pt-6 pb-4 bg-white sticky top-0 z-30 border-b border-gray-50 flex items-center gap-4">
+          <button 
+            onClick={() => setView(AppView.SUB_CATEGORY)}
+            className="p-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft size={20} className="text-gray-700" />
+          </button>
+          <h2 className="text-xl font-bold text-gray-900">{selectedSubCategory.title}</h2>
+        </div>
+
+        <div className="px-5 pt-6">
+          <p className="text-sm text-gray-500 font-medium mb-6">Select your device to see available services</p>
+          
+          <div className="grid grid-cols-2 gap-4">
+            {devices.map((device, idx) => (
+              <motion.div
+                key={device.name}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: idx * 0.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  setSelectedDevice(device.name);
+                  setView(AppView.SERVICE_DETAILS);
+                }}
+                className="relative aspect-square rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+              >
+                <img 
+                  src={device.imageUrl || `https://source.unsplash.com/featured/800x600?${device.name.replace(/\s+/g, '')},repair,professional`} 
+                  alt={device.name} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                  style={{ width: '100%', height: '100%' }}
+                  referrerPolicy="no-referrer" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4">
+                  <h4 className="text-white font-bold text-sm leading-tight">{device.name}</h4>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </motion.div>
     );
@@ -435,16 +1259,53 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 </span>
               </div>
               <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                <span className="text-lg font-bold text-gray-900">₹{order.grandTotal}</span>
-                <button 
-                  onClick={() => {
-                    setActiveOrder(order);
-                    setView(AppView.TRACKING);
-                  }} 
-                  className="text-red-600 text-sm font-bold flex items-center gap-1"
-                >
-                  View Details <ChevronRight size={14} />
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold text-gray-900">₹{order.grandTotal}</span>
+                  {(order.status === 'searching' || order.status === 'assigned') && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOrderToCancel(order);
+                      }}
+                      className="text-[10px] font-bold text-red-500 px-2 py-1 bg-red-50 rounded-lg uppercase tracking-wider"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {(order.status === 'assigned' || order.status === 'on_the_way') && (
+                    <>
+                      <button 
+                        onClick={() => setActiveChatOrder(order)}
+                        className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                        title="Chat with Professional"
+                      >
+                        <MessageSquare size={18} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setActiveOrder(order);
+                          setView(AppView.TRACKING);
+                        }} 
+                        className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl shadow-md shadow-red-600/20 active:scale-95 transition-all flex items-center gap-1.5"
+                      >
+                        <MapPin size={14} /> Track
+                      </button>
+                    </>
+                  )}
+                  {order.status !== 'assigned' && order.status !== 'on_the_way' && (
+                    <button 
+                      onClick={() => {
+                        setActiveOrder(order);
+                        setView(AppView.TRACKING);
+                      }} 
+                      className="text-red-600 text-sm font-bold flex items-center gap-1"
+                    >
+                      View Details <ChevronRight size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
@@ -503,9 +1364,94 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         order={trackableOrder}
         userRole="customer"
         onBack={() => setView(AppView.ORDERS)} 
+        onChat={() => setActiveChatJob(trackableOrder)}
       />
     );
   };
+
+  const renderAddressSelection = () => (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end justify-center"
+    >
+      <motion.div 
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        className="bg-white w-full max-w-md rounded-t-[32px] p-8 max-h-[80vh] overflow-y-auto"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Select Location</h3>
+          <button onClick={() => setIsSelectingAddress(false)} className="p-2 hover:bg-gray-100 rounded-full">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <button 
+            onClick={() => {
+              setSelectedAddress({ type: 'Current Location', address: currentLocation });
+              setIsSelectingAddress(false);
+            }}
+            className="w-full p-4 flex items-center gap-4 bg-red-50 rounded-2xl border border-red-100 text-left"
+          >
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-red-600 shadow-sm">
+              <RefreshCw size={20} />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900 text-sm">Current Location</p>
+              <p className="text-xs text-gray-500 truncate max-w-[200px]">{currentLocation}</p>
+            </div>
+          </button>
+
+          <div className="pt-4">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Saved Addresses</h4>
+            {profile?.addresses && profile.addresses.length > 0 ? (
+              <div className="space-y-3">
+                {profile.addresses.map((addr: any, idx: number) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setSelectedAddress(addr);
+                      setIsSelectingAddress(false);
+                    }}
+                    className={`w-full p-4 flex items-center gap-4 rounded-2xl border transition-all text-left ${
+                      selectedAddress?.id === addr.id ? 'border-red-600 bg-red-50/30' : 'border-gray-100 bg-white'
+                    }`}
+                  >
+                    <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 shadow-sm">
+                      <MapPin size={20} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{addr.type}</p>
+                      <p className="text-xs text-gray-500 truncate max-w-[200px]">
+                        {addr.flatNo}, {addr.street}, {addr.city}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                <p className="text-xs text-gray-400 font-bold">No saved addresses found</p>
+                <button 
+                  onClick={() => {
+                    setIsSelectingAddress(false);
+                    setView(AppView.ACCOUNT);
+                  }}
+                  className="text-red-600 text-xs font-bold mt-2 underline"
+                >
+                  Add address in profile
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
@@ -513,7 +1459,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         <AnimatePresence mode="wait">
           {view === AppView.HOME && renderHome()}
           {view === AppView.SUB_CATEGORY && renderSubCategory()}
+          {view === AppView.DEVICE_SELECTION && renderDeviceSelection()}
           {view === AppView.SERVICE_DETAILS && renderServiceDetails()}
+          {view === AppView.ITEM_DETAILS && renderItemDetails()}
           {view === AppView.ORDERS && renderOrders()}
           {view === AppView.CART && <Cart onClose={() => setView(AppView.SUB_CATEGORY)} setView={setView} />}
           {view === AppView.CHECKOUT && <Checkout onClose={() => setView(AppView.CART)} setView={setView} setActiveOrder={setActiveOrder} />}
@@ -530,11 +1478,26 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             />
           )}
         </AnimatePresence>
+
+        <AnimatePresence>
+          {isSelectingAddress && renderAddressSelection()}
+          {orderToCancel && (
+            <CancellationModal
+              order={orderToCancel}
+              onClose={() => setOrderToCancel(null)}
+              onConfirm={async (reason) => {
+                await handleCancelOrder(orderToCancel, reason);
+                setOrderToCancel(null);
+              }}
+              loading={cancelling}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Sticky Cart Bar */}
       <AnimatePresence>
-        {cart.length > 0 && (view === AppView.SERVICE_DETAILS || view === AppView.SUB_CATEGORY) && (
+        {cart.length > 0 && (view === AppView.SERVICE_DETAILS || view === AppView.SUB_CATEGORY || view === AppView.DEVICE_SELECTION) && (
           <motion.div 
             initial={{ y: 100 }}
             animate={{ y: 0 }}
@@ -574,7 +1537,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             }} 
             className={`flex flex-col items-center gap-1.5 py-1 flex-1 transition-all ${view === item.id ? 'text-red-600' : 'text-gray-400'}`}
           >
-            <item.icon size={22} strokeWidth={view === item.id ? 2.5 : 2} />
+            <motion.div 
+              animate={item.id === AppView.CART && justAdded ? { scale: [1, 1.4, 1], rotate: [0, 10, -10, 0] } : {}}
+              className="relative"
+            >
+              <item.icon size={22} strokeWidth={view === item.id ? 2.5 : 2} />
+              {item.id === AppView.CART && cart.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                  {cart.length}
+                </span>
+              )}
+            </motion.div>
             <span className="text-[9px] font-bold uppercase tracking-widest">{item.label}</span>
           </button>
         ))}
@@ -588,6 +1561,158 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           onUpdate={fetchProfile} 
         />
       )}
+
+      {/* AI Support Chatbot */}
+      <Chatbot 
+        userName={profile?.name || 'User'} 
+        onNavigate={setView} 
+        isOpen={showChatbot} 
+        onClose={() => setShowChatbot(false)} 
+      />
+
+      {/* Order Chat Modal */}
+      <AnimatePresence>
+        {activeChatOrder && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-white flex flex-col"
+          >
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setActiveChatOrder(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <ArrowLeft size={20} />
+                </button>
+                <div className="flex items-center gap-3">
+                  <img 
+                    src={activeChatOrder.workerPhoto || 'https://picsum.photos/seed/worker/200'} 
+                    className="w-10 h-10 rounded-full object-cover border border-gray-100"
+                    alt="Pro"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div>
+                    <h3 className="font-bold text-gray-900 leading-tight">{activeChatOrder.workerName || 'Professional'}</h3>
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Online • Active Job</p>
+                  </div>
+                </div>
+              </div>
+              <a href={`tel:+91${activeChatOrder.workerPhone}`} className="p-3 bg-gray-50 text-gray-900 rounded-2xl hover:bg-gray-100 transition-colors">
+                <RefreshCw size={18} className="rotate-45" /> {/* Using RefreshCw as a phone icon placeholder if needed, but I have Phone in Tracking.tsx. Let's use a phone icon if available or just a placeholder */}
+              </a>
+            </div>
+            
+            <div className="flex-1 p-6 overflow-y-auto bg-gray-50 space-y-4 no-scrollbar">
+              <div className="flex justify-center mb-6">
+                <span className="px-4 py-1.5 bg-gray-200/50 text-gray-500 text-[10px] font-bold rounded-full uppercase tracking-wider">Today</span>
+              </div>
+              
+              <div className="flex justify-start">
+                <div className="bg-white p-4 rounded-3xl rounded-tl-none shadow-sm max-w-[85%] border border-gray-100">
+                  <p className="text-sm text-gray-800 leading-relaxed">Hello! I'm {activeChatOrder.workerName}, your assigned professional. I'm on my way to your location for the {activeChatOrder.cartItems?.[0]?.title} service.</p>
+                  <p className="text-[10px] text-gray-400 mt-2 font-bold">10:30 AM</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <div className="bg-red-600 p-4 rounded-3xl rounded-tr-none shadow-lg shadow-red-600/20 max-w-[85%] text-white">
+                  <p className="text-sm leading-relaxed">Great, thank you! I'll be waiting at the address provided.</p>
+                  <p className="text-[10px] text-white/60 mt-2 font-bold uppercase tracking-widest">10:32 AM • Read</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-100 bg-white sticky bottom-0">
+              <div className="flex gap-3 items-center">
+                <div className="flex-1 relative">
+                  <input 
+                    type="text" 
+                    placeholder="Type a message..."
+                    className="w-full p-4 pr-12 bg-gray-50 border border-gray-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-red-600/20 focus:border-red-600 transition-all font-medium"
+                  />
+                </div>
+                <button className="w-14 h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/20 active:scale-95 transition-all">
+                  <Navigation size={20} className="rotate-90" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {activeChatJob && (
+          <motion.div 
+            initial={{ opacity: 0, x: '100%' }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: '100%' }}
+            className="fixed inset-0 z-[100] bg-white flex flex-col"
+          >
+            <div className="p-6 border-b border-gray-100 flex items-center gap-4 bg-white shadow-sm">
+              <button onClick={() => setActiveChatJob(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <ArrowLeft size={20} />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-50 border border-red-100 overflow-hidden">
+                  <img src={activeChatJob.workerPhoto || "https://picsum.photos/seed/pro/200"} alt="Professional" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">{activeChatJob.workerName || 'Professional'}</h3>
+                  <p className="text-[10px] text-red-600 font-bold uppercase tracking-widest">Service Chat</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-gray-50/50">
+              {chatMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                  <MessageSquare size={48} className="mb-4 opacity-20" />
+                  <p className="text-sm font-medium">No messages yet. Start the conversation!</p>
+                </div>
+              ) : (
+                chatMessages.map((msg) => (
+                  <div 
+                    key={msg.id} 
+                    className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-[80%] p-4 rounded-2xl text-sm ${
+                      msg.senderId === user.uid 
+                        ? 'bg-red-600 text-white rounded-tr-none shadow-md' 
+                        : 'bg-white text-gray-700 rounded-tl-none border border-gray-100 shadow-sm'
+                    }`}>
+                      <p className="leading-relaxed">{msg.text}</p>
+                      <p className={`text-[9px] mt-1.5 font-bold uppercase tracking-widest ${
+                        msg.senderId === user.uid ? 'text-red-100' : 'text-gray-400'
+                      }`}>
+                        {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-6 bg-white border-t border-gray-100 pb-10">
+              <div className="flex gap-3 items-center bg-gray-50 p-2 rounded-2xl border border-gray-100">
+                <input 
+                  type="text" 
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm p-2 font-medium"
+                />
+                <button 
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className="w-10 h-10 bg-red-600 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-red-600/20"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

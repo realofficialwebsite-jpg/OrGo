@@ -33,7 +33,7 @@ export const WorkerRegistration: React.FC<WorkerRegistrationProps> = ({ user, pr
   const [imagePreview, setImagePreview] = useState<string>(profile.photo || '');
   const [name, setName] = useState(profile.name || '');
   const [phone, setPhone] = useState(profile.phone || '');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,8 +78,6 @@ export const WorkerRegistration: React.FC<WorkerRegistrationProps> = ({ user, pr
       setLoading(false);
     }
   };
-
-  const currentCategory = APP_CATEGORIES.find(c => c.id === selectedCategoryId);
 
   const renderStep = () => {
     switch (step) {
@@ -136,44 +134,66 @@ export const WorkerRegistration: React.FC<WorkerRegistrationProps> = ({ user, pr
       case 2:
         return (
           <div className="space-y-4">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Select Main Category</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Select Categories You Work In</label>
             <div className="grid grid-cols-2 gap-3">
               {APP_CATEGORIES.map(cat => (
                 <button 
                   key={cat.id} 
                   onClick={() => {
-                    setSelectedCategoryId(cat.id);
-                    setSelectedSkills([]);
+                    setSelectedCategoryIds(prev => 
+                      prev.includes(cat.id) 
+                        ? prev.filter(id => id !== cat.id) 
+                        : [...prev, cat.id]
+                    );
                   }}
-                  className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all ${selectedCategoryId === cat.id ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-gray-100'}`}
+                  className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all ${selectedCategoryIds.includes(cat.id) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-gray-100'}`}
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedCategoryId === cat.id ? 'bg-primary text-white' : 'bg-gray-50 text-gray-400'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedCategoryIds.includes(cat.id) ? 'bg-primary text-white' : 'bg-gray-50 text-gray-400'}`}>
                     <Briefcase size={20} />
                   </div>
-                  <span className={`text-xs font-bold ${selectedCategoryId === cat.id ? 'text-primary' : 'text-gray-600'}`}>{cat.name}</span>
+                  <span className={`text-xs font-bold ${selectedCategoryIds.includes(cat.id) ? 'text-primary' : 'text-gray-600'}`}>{cat.name}</span>
                 </button>
               ))}
             </div>
           </div>
         );
       case 3:
+        const selectedCats = APP_CATEGORIES.filter(c => selectedCategoryIds.includes(c.id));
         return (
-          <div className="space-y-4">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Select Your Skills in {currentCategory?.name}</label>
-            <div className="space-y-2">
-              {currentCategory?.subCategories.map(sub => (
-                <button 
-                  key={sub.id} 
-                  onClick={() => setSelectedSkills(prev => prev.includes(sub.title) ? prev.filter(s => s !== sub.title) : [...prev, sub.title])}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedSkills.includes(sub.title) ? 'bg-primary/5 border-primary' : 'bg-white border-gray-100'}`}
-                >
-                  <span className={`text-sm font-bold ${selectedSkills.includes(sub.title) ? 'text-primary' : 'text-gray-700'}`}>{sub.title}</span>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${selectedSkills.includes(sub.title) ? 'bg-primary border-primary text-white' : 'border-gray-200'}`}>
-                    {selectedSkills.includes(sub.title) && <Check size={14} strokeWidth={3} />}
-                  </div>
-                </button>
-              ))}
-            </div>
+          <div className="space-y-6">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Select Your Specific Skills</label>
+            {selectedCats.map(cat => (
+              <div key={cat.id} className="space-y-4">
+                <h3 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-2">
+                  <div className="w-1 h-4 bg-primary rounded-full" />
+                  {cat.name}
+                </h3>
+                <div className="space-y-6">
+                  {cat.subCategories.map(sub => (
+                    <div key={sub.id} className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">{sub.title}</p>
+                      <div className="grid grid-cols-1 gap-2">
+                        {sub.items.map(item => (
+                          <button 
+                            key={item.id} 
+                            onClick={() => setSelectedSkills(prev => prev.includes(item.title) ? prev.filter(s => s !== item.title) : [...prev, item.title])}
+                            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedSkills.includes(item.title) ? 'bg-primary/5 border-primary' : 'bg-white border-gray-100'}`}
+                          >
+                            <div className="text-left">
+                              <p className={`text-sm font-bold ${selectedSkills.includes(item.title) ? 'text-primary' : 'text-gray-700'}`}>{item.title}</p>
+                              <p className="text-[10px] text-gray-400">Professional Service</p>
+                            </div>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${selectedSkills.includes(item.title) ? 'bg-primary border-primary text-white' : 'border-gray-200'}`}>
+                              {selectedSkills.includes(item.title) && <Check size={14} strokeWidth={3} />}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         );
       default:
@@ -183,7 +203,7 @@ export const WorkerRegistration: React.FC<WorkerRegistrationProps> = ({ user, pr
 
   const isNextDisabled = () => {
     if (step === 1) return !name || !phone;
-    if (step === 2) return !selectedCategoryId;
+    if (step === 2) return selectedCategoryIds.length === 0;
     if (step === 3) return selectedSkills.length === 0;
     return false;
   };

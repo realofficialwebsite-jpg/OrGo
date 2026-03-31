@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Phone, MessageSquare, MapPin, CheckCircle, ChevronLeft, Star, Clock, Navigation, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Phone, MessageSquare, MapPin, CheckCircle, ChevronLeft, Star, Clock, Navigation, XCircle, X } from 'lucide-react';
 import { Booking } from '../src/types';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../src/firebase';
@@ -11,9 +11,106 @@ interface TrackingProps {
   userRole: 'customer' | 'professional';
   onBack?: () => void;
   onCompleteJob?: () => void;
+  onChat?: () => void;
 }
 
-export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onCompleteJob }) => {
+const CancellationModal: React.FC<{
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  loading: boolean;
+  userRole: 'customer' | 'professional';
+}> = ({ onClose, onConfirm, loading, userRole }) => {
+  const [reason, setReason] = useState('');
+  const [otherReason, setOtherReason] = useState('');
+  
+  const customerReasons = [
+    'Wait time is too long',
+    'Professional is not responding',
+    'Found a better price elsewhere',
+    'Changed my mind',
+    'Booked by mistake',
+    'Other'
+  ];
+
+  const professionalReasons = [
+    'Vehicle breakdown',
+    'Personal emergency',
+    'Location too far',
+    'Equipment issue',
+    'Safety concerns',
+    'Other'
+  ];
+
+  const reasons = userRole === 'customer' ? customerReasons : professionalReasons;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
+    >
+      <motion.div 
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-8 overflow-hidden"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Cancel Booking</h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        <p className="text-gray-500 text-sm mb-6 font-medium">Please tell us why you want to cancel. This helps us improve our service.</p>
+
+        <div className="space-y-3 mb-8 max-h-[300px] overflow-y-auto no-scrollbar">
+          {reasons.map((r) => (
+            <button
+              key={r}
+              onClick={() => setReason(r)}
+              className={`w-full text-left p-4 rounded-2xl border-2 transition-all font-bold text-sm ${
+                reason === r 
+                  ? 'border-red-600 bg-red-50 text-red-600' 
+                  : 'border-gray-100 hover:border-gray-200 text-gray-700'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+
+        {reason === 'Other' && (
+          <textarea
+            value={otherReason}
+            onChange={(e) => setOtherReason(e.target.value)}
+            placeholder="Please specify your reason..."
+            className="w-full p-4 mb-6 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:border-red-600 resize-none h-24 font-medium"
+          />
+        )}
+
+        <div className="flex gap-4">
+          <button 
+            onClick={onClose}
+            className="flex-1 py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all"
+          >
+            Go Back
+          </button>
+          <button 
+            onClick={() => onConfirm(reason === 'Other' ? otherReason : reason)}
+            disabled={!reason || (reason === 'Other' && !otherReason) || loading}
+            className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-600/20 active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            {loading ? 'Cancelling...' : 'Confirm Cancel'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onCompleteJob, onChat }) => {
   const isWorker = userRole === 'professional';
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -21,6 +118,23 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [workerData, setWorkerData] = useState<any>(null);
+  const [customerData, setCustomerData] = useState<any>(null);
+
+  React.useEffect(() => {
+    if (!order) return;
+    if (order.assignedWorkerId) {
+      getDoc(doc(db, 'users', order.assignedWorkerId)).then(snap => {
+        if (snap.exists()) setWorkerData(snap.data());
+      });
+    }
+    if (order.userId) {
+      getDoc(doc(db, 'users', order.userId)).then(snap => {
+        if (snap.exists()) setCustomerData(snap.data());
+      });
+    }
+  }, [order?.assignedWorkerId, order?.userId]);
 
   if (!order) return (
     <div className="flex flex-col items-center justify-center h-screen p-6 text-center">
@@ -70,13 +184,17 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
     }
   };
 
-  const handleCancelBooking = async () => {
+  const handleCancelBooking = async (reason: string) => {
     if (!order?.id) return;
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
     
     setCancelling(true);
     try {
-      await updateDoc(doc(db, 'order', order.id), { status: 'cancelled' });
+      await updateDoc(doc(db, 'order', order.id), { 
+        status: 'cancelled',
+        cancellationReason: reason,
+        cancelledBy: userRole
+      });
+      setShowCancelModal(false);
       if (onBack) onBack();
     } catch (error) {
       console.error('Error cancelling booking:', error);
@@ -103,9 +221,9 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
       <div className="absolute top-6 left-6 z-20 flex items-center gap-3">
         <button 
           onClick={onBack}
-          className="p-3 bg-white shadow-lg rounded-2xl text-gray-700 active:scale-95 transition-all border border-gray-100"
+          className="px-4 py-2 bg-white shadow-lg rounded-2xl text-gray-700 active:scale-95 transition-all border border-gray-100 flex items-center gap-2 font-bold text-sm"
         >
-          <ChevronLeft size={24} strokeWidth={2.5} />
+          <ChevronLeft size={20} strokeWidth={3} /> Back to Home
         </button>
       </div>
 
@@ -136,7 +254,7 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
           <div className="flex items-center gap-5">
             <div className="relative">
               <img 
-                src={isWorker ? "https://picsum.photos/seed/customer/200" : (order.workerPhoto || "https://picsum.photos/seed/pro/200")} 
+                src={isWorker ? (customerData?.photo || "https://picsum.photos/seed/customer/200") : (order.workerPhoto || "https://picsum.photos/seed/pro/200")} 
                 alt="Profile" 
                 className="w-16 h-16 rounded-2xl object-cover shadow-sm border border-gray-100" 
                 referrerPolicy="no-referrer"
@@ -145,14 +263,16 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
             </div>
             <div>
               <h2 className="text-xl font-display font-bold text-gray-900">
-                {isWorker ? (order.customerName || 'Customer') : (order.workerName || 'Professional')}
+                {isWorker ? (order.customerName || 'Client') : (order.workerName || 'Professional')}
               </h2>
               <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mt-1.5">
                 {isWorker ? (
                   <span className="truncate max-w-[180px]">{order.address}</span>
                 ) : (
                   <>
-                    <span className="flex items-center gap-1 text-amber-500"><Star size={14} fill="currentColor" /> 4.8</span>
+                    <span className="flex items-center gap-1 text-amber-500">
+                      <Star size={14} fill="currentColor" /> {workerData?.rating?.toFixed(1) || '4.8'}
+                    </span>
                     <span className="opacity-30">•</span>
                     <span>{order?.cartItems?.[0]?.title || 'Service Expert'}</span>
                   </>
@@ -168,10 +288,10 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
               <Phone size={18} strokeWidth={2.5} /> Call
             </a>
             <button 
-              onClick={handleWhatsApp}
+              onClick={isWorker ? handleWhatsApp : onChat}
               className="flex-1 flex items-center justify-center gap-3 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all hover:bg-gray-50"
             >
-              <MessageSquare size={18} strokeWidth={2.5} /> WhatsApp
+              <MessageSquare size={18} strokeWidth={2.5} className="text-emerald-600" /> {isWorker ? 'WhatsApp' : 'Chat'}
             </button>
           </div>
         )}
@@ -187,7 +307,7 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
           )}
           {isOngoing && (
             <button 
-              onClick={handleCancelBooking}
+              onClick={() => setShowCancelModal(true)}
               disabled={cancelling}
               className={`flex-1 py-4 ${isWorker ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-red-600 text-white'} rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2`}
             >
@@ -283,6 +403,16 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
           </div>
         </div>
       </div>
+      <AnimatePresence>
+        {showCancelModal && (
+          <CancellationModal 
+            userRole={userRole}
+            loading={cancelling}
+            onClose={() => setShowCancelModal(false)}
+            onConfirm={handleCancelBooking}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

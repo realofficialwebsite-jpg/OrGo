@@ -126,5 +126,23 @@ service cloud.firestore {
                       
       allow delete: if isAdmin();
     }
+
+    match /messages/{messageId} {
+      // Allow read if the user is part of the order (customer or assigned professional)
+      allow read: if isAuthenticated() && (
+        get(/databases/$(database)/documents/order/$(resource.data.orderId)).data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/order/$(resource.data.orderId)).data.assignedWorkerId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Allow create if the user is part of the order and the senderId matches their UID
+      allow create: if isAuthenticated() && 
+                      request.resource.data.senderId == request.auth.uid &&
+                      (
+                        get(/databases/$(database)/documents/order/$(request.resource.data.orderId)).data.userId == request.auth.uid ||
+                        get(/databases/$(database)/documents/order/$(request.resource.data.orderId)).data.assignedWorkerId == request.auth.uid ||
+                        isAdmin()
+                      );
+    }
   }
 }

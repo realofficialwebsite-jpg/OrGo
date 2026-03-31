@@ -163,7 +163,13 @@ const CustomerRadar: React.FC<CustomerRadarProps> = ({ orderId, onWorkerAssigned
                   className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4"
                 >
                   <div className="flex items-center gap-4">
-                    <img src={worker.photo || 'https://via.placeholder.com/150'} alt={worker.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-50" />
+                    <img 
+                      src={worker.photo || 'https://via.placeholder.com/150'} 
+                      alt={worker.name} 
+                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-50" 
+                      style={{ width: '64px', height: '64px' }}
+                      referrerPolicy="no-referrer"
+                    />
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-900 text-lg">{worker.name}</h4>
                       <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">

@@ -5,14 +5,14 @@ export interface ServiceItem {
   reviews: string;
   price: number;
   descriptionPoints: string[];
-  image: string;
+  imageUrl: string;
 }
 
 export interface SubCategory {
   id: string;
   title: string;
   icon: string;
-  image?: string;
+  imageUrl?: string;
   items: ServiceItem[];
 }
 
@@ -21,7 +21,7 @@ export interface Category {
   name: string;
   icon: string;
   priceStart: number;
-  image: string;
+  imageUrl: string;
   tag?: string;
   category: string;
   subCategories: SubCategory[];
@@ -74,9 +74,14 @@ export interface Booking {
   isRated?: boolean;
   customerPhone?: string;
   customerName?: string;
+  customerPhoto?: string;
   workerPhone?: string;
   customerLocation?: { lat: number; lng: number };
   workerLocation?: { lat: number; lng: number };
+  cancelReason?: string;
+  cancelledAt?: any;
+  completedAt?: any;
+  review?: string;
 }
 
 export enum AppView {
@@ -88,8 +93,10 @@ export enum AppView {
   BOOKING = 'BOOKING',
   SUB_CATEGORY = 'SUB_CATEGORY',
   SERVICE_DETAILS = 'SERVICE_DETAILS',
+  DEVICE_SELECTION = 'DEVICE_SELECTION',
   CART = 'CART',
   CHECKOUT = 'CHECKOUT',
+  ITEM_DETAILS = 'ITEM_DETAILS',
   WORKER_REGISTRATION = 'WORKER_REGISTRATION',
   WORKER_APP = 'WORKER_APP',
   CUSTOMER_APP = 'CUSTOMER_APP'
@@ -106,6 +113,8 @@ export interface Address {
   city: string;
   state: string;
   type: 'Home' | 'Work' | 'Other';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UserProfile {
@@ -124,4 +133,7 @@ export interface UserProfile {
   experience?: string;
   rating?: number;
   totalReviews?: number;
+  category?: string;
+  workingHours?: { start: string; end: string };
+  availableDays?: string[];
 }

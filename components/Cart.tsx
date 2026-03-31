@@ -30,6 +30,8 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<typeof PROMO_CODES[0] | null>(null);
   const [showPromoList, setShowPromoList] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
 
   const platformFee = 49;
   const taxes = Math.round(cartTotal * 0.18);
@@ -37,17 +39,22 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
   const grandTotal = cartTotal + platformFee + taxes - discount;
 
   const handleApplyPromo = (code: string) => {
-    const promo = PROMO_CODES.find(p => p.code === code);
+    setPromoError(null);
+    setPromoSuccess(null);
+    
+    const promo = PROMO_CODES.find(p => p.code === code.toUpperCase());
     if (promo) {
       if (cartTotal >= promo.minOrder) {
         setAppliedPromo(promo);
         setPromoCode(promo.code);
         setShowPromoList(false);
+        setPromoSuccess(`Applied ${promo.code} successfully!`);
+        setTimeout(() => setPromoSuccess(null), 3000);
       } else {
-        alert(`Minimum order value for ${code} is ₹${promo.minOrder}`);
+        setPromoError(`Minimum order value for ${code} is ₹${promo.minOrder}`);
       }
     } else {
-      alert('Invalid promo code');
+      setPromoError('Invalid promo code. Please check and try again.');
     }
   };
 
@@ -104,7 +111,13 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
               className="bg-white rounded-3xl p-4 border border-gray-100 shadow-sm flex items-center gap-4"
             >
               <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0">
-                <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                <img 
+                  src={item.imageUrl || `https://source.unsplash.com/featured/800x600?${item.title.replace(/\s+/g, '')},repair,professional`} 
+                  alt={item.title} 
+                  className="w-full h-full object-cover" 
+                  style={{ width: '100%', height: '100%' }}
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-900 text-sm mb-1">{item.title}</h3>
@@ -153,8 +166,13 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
                 type="text" 
                 placeholder="Enter promo code"
                 value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-primary transition-colors"
+                onChange={(e) => {
+                  setPromoCode(e.target.value.toUpperCase());
+                  setPromoError(null);
+                }}
+                className={`flex-1 bg-gray-50 border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors ${
+                  promoError ? 'border-red-300 focus:border-red-500' : 'border-gray-100 focus:border-primary'
+                }`}
               />
               <button 
                 onClick={() => handleApplyPromo(promoCode)}
@@ -163,6 +181,26 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
                 APPLY
               </button>
             </div>
+
+            {promoError && (
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 text-[10px] font-bold text-red-500 px-1"
+              >
+                {promoError}
+              </motion.p>
+            )}
+
+            {promoSuccess && (
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 text-[10px] font-bold text-emerald-600 px-1"
+              >
+                {promoSuccess}
+              </motion.p>
+            )}
 
             {appliedPromo && (
               <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-between">

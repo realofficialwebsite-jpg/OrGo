@@ -112,7 +112,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
       }
     }, (err) => {
       console.error(err);
-      alert('Location access denied');
+      // alert('Location access denied');
       setLocating(false);
     });
   };
@@ -211,17 +211,18 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
         console.log('Image uploaded:', imageUrl);
       }
 
-      let customerLocation = { lat: 0, lng: 0 };
+      let customerLocation = { lat: 26.9124, lng: 75.7873 }; // Default to Jaipur
       try {
         const pos = await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
             (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
-            (error) => reject(error)
+            (error) => reject(error),
+            { timeout: 5000 }
           );
         });
         customerLocation = pos;
       } catch (e) {
-        console.warn('Could not get location:', e);
+        console.warn('Could not get location, using default:', e);
       }
 
       const selectedAddr = savedAddresses.find(a => a.id === selectedAddressId);
@@ -231,6 +232,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
       const orderPayload = {
         userId: auth.currentUser.uid,
         customerName,
+        customerPhoto: auth.currentUser?.photoURL || '',
         cartItems: cart,
         grandTotal,
         address: getSelectedAddressString(),
@@ -696,7 +698,13 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
                     </label>
                     {imagePreview && (
                       <div className="w-24 h-24 rounded-2xl overflow-hidden relative group">
-                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        <img 
+                          src={imagePreview} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover" 
+                          style={{ width: '100%', height: '100%' }}
+                          referrerPolicy="no-referrer"
+                        />
                         <button 
                           onClick={() => {
                             setImageFile(null);
