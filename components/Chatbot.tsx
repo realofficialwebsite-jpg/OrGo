@@ -51,52 +51,31 @@ When you suggest a service, make sure to mention the EXACT service title from th
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setIsLoading(true);
 
-    try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
-      if (!apiKey) {
-        throw new Error("API Key is missing. Please set VITE_GEMINI_API_KEY in your environment variables.");
-      }
+        try {
+      // @ts-ignore
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+      if (!apiKey) throw new Error("API Key is missing");
 
-      const ai = new GoogleGenAI({ apiKey });
-      
-      // Format history for Gemini (alternating user/model roles)
+      // FIX: Pass apiKey directly as a string
+      // @ts-ignore
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        systemInstruction: systemPrompt 
+      });
+
       const history = messages.map(m => ({
-        role: m.role,
+        role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }]
       }));
 
-      const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
-        contents: [
-          ...history,
-          { role: 'user', parts: [{ text: userMessage }] }
-        ],
-        config: {
-          systemInstruction: systemPrompt,
-          safetySettings: [
-            {
-              category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-              threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
-            {
-              category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-              threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
-            {
-              category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-              threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
-            {
-              category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-              threshold: HarmBlockThreshold.BLOCK_NONE,
-            },
-          ],
-        },
+      const result = await model.generateContent({
+        contents: [...history, { role: 'user', parts: [{ text: userMessage }] }]
       });
 
-      const aiText = response.text || "I'm sorry, I couldn't process that.";
-      
-      // Try to find a suggested service in the text
+      const response = await result.response;
+      const aiText = response.text();
+
       const suggestedService = allServices.find(s => 
         aiText.toLowerCase().includes(s.title.toLowerCase())
       );
@@ -108,11 +87,14 @@ When you suggest a service, make sure to mention the EXACT service title from th
       }]);
     } catch (error) {
       console.error("Gemini Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I'm having trouble connecting right now." }]);
+      setMessages(prev => [...prev, { 
+        role: 'model', 
+        text: "Sorry, I'm having trouble connecting right now." 
+      }]);
     } finally {
       setIsLoading(false);
-    }
-  };
+                                   }
+    
 
   const handleBookNow = (service: ServiceItem) => {
     addToCart(service);
