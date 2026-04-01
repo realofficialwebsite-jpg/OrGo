@@ -41,6 +41,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Step 1: Address
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
@@ -202,13 +203,15 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
     setLoading(true);
 
     try {
-      let imageUrl = '';
+      let imageUrl: string | null = null;
       if (imageFile) {
+        setIsUploadingImage(true);
         console.log('Uploading image...');
         const storageRef = ref(storage, `booking_images/${auth.currentUser.uid}/${Date.now()}_${imageFile.name}`);
         const uploadResult = await uploadBytes(storageRef, imageFile);
         imageUrl = await getDownloadURL(uploadResult.ref);
         console.log('Image uploaded:', imageUrl);
+        setIsUploadingImage(false);
       }
 
       let customerLocation = { lat: 26.9124, lng: 75.7873 }; // Default to Jaipur
@@ -261,6 +264,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
       handleFirestoreError(error, OperationType.WRITE, 'order');
     } finally {
       setLoading(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -837,7 +841,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
             {loading ? (
               <>
                 <Loader2 size={20} className="animate-spin" />
-                <span>Confirming...</span>
+                <span>{isUploadingImage ? 'Uploading...' : 'Confirming...'}</span>
               </>
             ) : (
               <>

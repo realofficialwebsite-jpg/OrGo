@@ -313,7 +313,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
                     <input
                       type="email"
-                      placeholder="name@example.com"
+                      placeholder="Enter your email"
                       className="input-field pl-11"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -334,7 +334,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
                       <input
                         type="password"
-                        placeholder="••••••••"
+                        placeholder=""
                         className="input-field pl-11"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}

@@ -36,9 +36,11 @@ interface AccountProps {
   onUpdateProfile: () => void;
   setActiveMode?: (mode: 'customer' | 'worker') => void;
   profile?: UserProfile | null;
+  favorites: string[];
+  toggleFavorite: (id: string) => void;
 }
 
-export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUpdateProfile, setActiveMode, profile: initialProfile }) => {
+export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUpdateProfile, setActiveMode, profile: initialProfile, favorites, toggleFavorite }) => {
   const [loading, setLoading] = useState(true);
   const [activeSubView, setActiveSubView] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile>(initialProfile || {
@@ -402,12 +404,36 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
     );
   };
 
-  const renderFavorites = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-      {renderSubViewHeader('Favorites')}
-      <div className="text-center py-10 text-gray-500">Favorites view...</div>
-    </motion.div>
-  );
+  const renderFavorites = () => {
+    const allServices = APP_CATEGORIES.flatMap(cat => cat.subCategories.flatMap(sub => sub.items));
+    const favoriteServices = allServices.filter(item => favorites.includes(item.id));
+
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+        {renderSubViewHeader('Favorites')}
+        <div className="p-5 space-y-4">
+          {favoriteServices.length > 0 ? (
+            favoriteServices.map(item => (
+              <div key={item.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <img src={item.imageUrl} alt={item.title} className="w-16 h-16 rounded-xl object-cover" referrerPolicy="no-referrer" />
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">{item.title}</h4>
+                    <p className="text-xs text-gray-500">₹{item.price}</p>
+                  </div>
+                </div>
+                <button onClick={() => toggleFavorite(item.id)} className="p-2 text-red-500">
+                  <Heart size={20} className="fill-red-500" />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-10 text-gray-500">No favorites yet.</div>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
 
   const renderWorkerRegistration = () => (
     <WorkerRegistration 
@@ -421,6 +447,48 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
       onBack={() => setActiveSubView(null)}
       navigate={navigate}
     />
+  );
+
+  const renderHelp = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="h-full">
+      {renderSubViewHeader('Help & Support')}
+      <div className="p-6 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-6 text-center">
+        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary mb-4">
+          <HelpCircle size={32} />
+        </div>
+        <p className="text-gray-600 leading-relaxed">
+          For any issues with your booking or technical support, please contact us. Our team is available 24/7 to assist you.
+        </p>
+        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Email Support</p>
+          <p className="text-lg font-bold text-gray-900">queries.girish@gmail.com</p>
+        </div>
+        <button 
+          onClick={() => window.location.href = "mailto:queries.girish@gmail.com"}
+          className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+        >
+          Email Support
+        </button>
+      </div>
+    </motion.div>
+  );
+
+  const renderAbout = () => (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col h-full">
+      {renderSubViewHeader('About OrGo')}
+      <div className="flex-1 p-6 bg-white rounded-3xl border border-gray-100 shadow-sm text-center flex flex-col items-center justify-center">
+        <div className="w-24 h-24 bg-primary rounded-3xl flex items-center justify-center text-white mb-6 shadow-xl shadow-primary/20">
+          <Wrench size={40} />
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-4">OrGo</h3>
+        <p className="text-gray-600 leading-relaxed mb-8">
+          OrGo is a professional on-demand home service platform designed to bridge the gap between skilled service providers and households. We provide reliable AC repair, plumbing, and housekeeping services at the tap of a button.
+        </p>
+      </div>
+      <div className="mt-auto py-6 text-center">
+        <p className="text-sm text-gray-400 font-medium">Developed by Girish Sharma</p>
+      </div>
+    </motion.div>
   );
 
   return (
@@ -549,6 +617,8 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
             {activeSubView === 'add_address' && renderAddAddress()}
             {activeSubView === 'favorites' && renderFavorites()}
             {activeSubView === 'professional' && renderWorkerRegistration()}
+            {activeSubView === 'help' && renderHelp()}
+            {activeSubView === 'about' && renderAbout()}
           </motion.div>
         )}
       </AnimatePresence>

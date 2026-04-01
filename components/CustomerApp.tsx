@@ -66,11 +66,13 @@ const Image = ({ source, style, resizeMode }: { source: { uri: string }, style?:
   );
 };
 
-const ServiceCard = ({ item, addToCart, removeFromCart, getItemQuantity }: { 
+const ServiceCard = ({ item, addToCart, removeFromCart, getItemQuantity, isFavorite, toggleFavorite }: { 
   item: ServiceItem, 
   addToCart: (item: ServiceItem) => void, 
   removeFromCart: (id: string) => void, 
-  getItemQuantity: (id: string) => number 
+  getItemQuantity: (id: string) => number,
+  isFavorite: boolean,
+  toggleFavorite: (id: string) => void
 }) => {
   return (
     <div className="flex items-start justify-between p-5 bg-white rounded-[32px] border border-gray-50 shadow-sm hover:shadow-md transition-all group">
@@ -95,8 +97,14 @@ const ServiceCard = ({ item, addToCart, removeFromCart, getItemQuantity }: {
       </div>
       <div className="w-32 flex flex-col items-center gap-3">
         <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-          <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 160 }} resizeMode='cover' />
+          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+          <button 
+            onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
+            className="absolute top-2 right-2 p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors z-10"
+          >
+            <Heart size={16} className={isFavorite ? 'fill-red-500 text-red-500' : ''} />
+          </button>
         </div>
         
         <div className="w-full px-2" onClick={(e) => e.stopPropagation()}>
@@ -241,6 +249,20 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [activeChatJob, setActiveChatJob] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    const saved = localStorage.getItem('favorites');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }, [favorites]);
+
+  const toggleFavorite = (id: string) => {
+    setFavorites(prev => 
+      prev.includes(id) ? prev.filter(favId => favId !== id) : [...prev, id]
+    );
+  };
 
   useEffect(() => {
     if (!activeChatJob) return;
@@ -964,6 +986,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 addToCart={addToCart} 
                 removeFromCart={removeFromCart} 
                 getItemQuantity={getItemQuantity} 
+                isFavorite={favorites.includes(item.id)}
+                toggleFavorite={toggleFavorite}
               />
             </div>
           ))}
@@ -1277,13 +1301,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   {(order.status === 'assigned' || order.status === 'on_the_way') && (
                     <>
                       <button 
-                        onClick={() => setActiveChatOrder(order)}
-                        className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
-                        title="Chat with Professional"
-                      >
-                        <MessageSquare size={18} />
-                      </button>
-                      <button 
                         onClick={() => {
                           setActiveOrder(order);
                           setView(AppView.TRACKING);
@@ -1475,6 +1492,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               onUpdateProfile={fetchProfile}
               setActiveMode={setActiveMode}
               profile={profile}
+              favorites={favorites}
+              toggleFavorite={toggleFavorite}
             />
           )}
         </AnimatePresence>

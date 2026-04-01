@@ -6,6 +6,7 @@ export interface ServiceItem {
   price: number;
   descriptionPoints: string[];
   imageUrl: string;
+  isFavorite?: boolean;
 }
 
 export interface SubCategory {
