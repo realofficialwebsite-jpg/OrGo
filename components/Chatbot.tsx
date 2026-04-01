@@ -53,7 +53,9 @@ When you suggest a service, make sure to mention the EXACT service title from th
 
     try {
       // @ts-ignore
-const ai = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+const key = import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+const ai = new GoogleGenerativeAI(key);
+      
       
       
       const response = await ai.models.generateContent({
