@@ -53,15 +53,26 @@ When you suggest a service, make sure to mention the EXACT service title from th
 
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+      if (!apiKey) {
+        throw new Error("API Key is missing. Please set VITE_GEMINI_API_KEY in your environment variables.");
+      }
+
       const ai = new GoogleGenAI({ apiKey });
+      
+      // Format history for Gemini (alternating user/model roles)
+      const history = messages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
+
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-flash-latest",
         contents: [
-          { role: 'user', parts: [{ text: systemPrompt }] },
-          ...messages.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+          ...history,
           { role: 'user', parts: [{ text: userMessage }] }
         ],
         config: {
+          systemInstruction: systemPrompt,
           safetySettings: [
             {
               category: HarmCategory.HARM_CATEGORY_HARASSMENT,
