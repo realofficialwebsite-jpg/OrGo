@@ -45,7 +45,6 @@ import { Account } from './Account';
 import { Cart } from './Cart';
 import { Checkout } from './Checkout';
 import { EditProfileModal } from './EditProfileModal';
-import { Chatbot } from './Chatbot';
 // import { AnimatedPromoHeader } from './AnimatedPromoHeader';
 
 const Image = ({ source, style, resizeMode }: { source: { uri: string }, style?: any, resizeMode?: 'cover' | 'contain' }) => {
@@ -311,7 +310,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const placeholders = ['Search for Plumbing', 'Search for AC Repair', 'Search for Home Cleaning', 'Search for Electrician'];
 
   const [currentBanner, setCurrentBanner] = useState(0);
-  const [showChatbot, setShowChatbot] = useState(false);
   const promoBanners = [
     {
       id: 1,
@@ -499,7 +497,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             </div>
           </div>
 
-          {/* Search Bar & Chatbot */}
+          {/* Search Bar */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1 h-[52px]">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -521,13 +519,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 </button>
               )}
             </div>
-            <button 
-              onClick={() => setShowChatbot(true)}
-              className="w-[52px] h-[52px] bg-gray-100 rounded-2xl text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center shrink-0"
-              title="Chat with Assistant"
-            >
-              <Sparkles size={20} className="text-red-600" strokeWidth={2.5} />
-            </button>
           </div>
         </div>
 
@@ -806,7 +797,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             <h2 className="text-xl font-bold text-gray-900">{selectedCategory.name}</h2>
           </div>
 
-          {/* Search Bar & Chatbot (Consistent with Home) */}
+          {/* Search Bar */}
           <div className="px-5 py-4">
             <div className="flex items-center gap-2">
               <div className="relative flex-1 h-[52px]">
@@ -819,12 +810,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   className="w-full h-full pl-11 pr-4 bg-gray-100 border-none rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:bg-white transition-all"
                 />
               </div>
-              <button 
-                onClick={() => setShowChatbot(true)}
-                className="w-[52px] h-[52px] bg-gray-100 rounded-2xl text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center shrink-0"
-              >
-                <Sparkles size={20} className="text-red-600" strokeWidth={2.5} />
-              </button>
             </div>
           </div>
 
@@ -955,7 +940,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </div>
         </div>
 
-        {/* Search Bar & Chatbot (Consistent with Home) */}
+        {/* Search Bar */}
         <div className="px-5 py-4 bg-white">
           <div className="flex items-center gap-2">
             <div className="relative flex-1 h-[52px]">
@@ -968,12 +953,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 className="w-full h-full pl-11 pr-4 bg-gray-100 border-none rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:bg-white transition-all"
               />
             </div>
-            <button 
-              onClick={() => setShowChatbot(true)}
-              className="w-[52px] h-[52px] bg-gray-100 rounded-2xl text-gray-700 hover:bg-gray-200 transition-all flex items-center justify-center shrink-0"
-            >
-              <Sparkles size={20} className="text-red-600" strokeWidth={2.5} />
-            </button>
           </div>
         </div>
 
@@ -1579,12 +1558,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           onUpdate={fetchProfile} 
         />
       )}
-
-      {/* AI Support Chatbot */}
-      <Chatbot 
-        isOpen={showChatbot} 
-        onClose={() => setShowChatbot(false)} 
-      />
 
       {/* Order Chat Modal */}
       <AnimatePresence>
