@@ -1,46 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Send, Loader2, ShoppingBag } from 'lucide-react';
-import { APP_CATEGORIES } from '../src/constants';
-import { useCart } from '../src/CartContext';
-import { AppView, ServiceItem } from '../src/types';
+import { X, Send, Bot, User as UserIcon, Loader2, Sparkles } from 'lucide-react';
+import { GoogleGenAI } from '@google/genai';
 
 interface Message {
   role: 'user' | 'model';
   text: string;
-  suggestedService?: ServiceItem;
 }
 
 interface ChatbotProps {
-  userName: string;
-  onNavigate: (view: AppView) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const Chatbot: React.FC<ChatbotProps> = ({ userName, onNavigate, isOpen, onClose }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+export const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'model', text: 'Hi! I am the OrGo Smart Assistant. How can I help you with your home services today?' }
+  ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { addToCart } = useCart();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const allServices: ServiceItem[] = APP_CATEGORIES.flatMap(cat => 
-    cat.subCategories.flatMap(sub => sub.items)
-  );
-
-  const systemPrompt = `You are the OrGo Assistant. You help users find the right home service. 
-Our services include: ${allServices.map(s => `${s.title} (Price: ₹${s.price})`).join(', ')}. 
-If a user describes a problem, suggest the correct service and tell them the price. 
-Be polite and concise. 
-Greet the user by their name: ${userName}.
-When you suggest a service, make sure to mention the EXACT service title from the list above so I can identify it.`;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages, isLoading]);
 
   const handleSend = async () => {
@@ -51,146 +37,131 @@ When you suggest a service, make sure to mention the EXACT service title from th
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setIsLoading(true);
 
-        try {
-      // @ts-ignore
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
-      if (!apiKey) throw new Error("API Key is missing");
+    try {
+      // API Key Setup (CRITICAL FOR VERCEL)
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+      if (!apiKey) {
+        throw new Error("API Key is missing.");
+      }
 
-      // FIX: Pass apiKey directly as a string
-      // @ts-ignore
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-        systemInstruction: systemPrompt 
-      });
-
+      // Using the required @google/genai SDK
+      const ai = new GoogleGenAI({ apiKey });
+      
+      // Map history to ensure strict alternation
       const history = messages.map(m => ({
-        role: m.role === 'user' ? 'user' : 'model',
+        role: m.role,
         parts: [{ text: m.text }]
       }));
 
-      const result = await model.generateContent({
-        contents: [...history, { role: 'user', parts: [{ text: userMessage }] }]
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview', // Using the required updated model
+        contents: [
+          ...history,
+          { role: 'user', parts: [{ text: userMessage }] }
+        ],
+        config: {
+          systemInstruction: "You are the OrGo Smart Assistant. Be polite, concise, and suggest home services based on the user's problem.",
+        }
       });
 
-      const response = await result.response;
-      const aiText = response.text();
-
-      const suggestedService = allServices.find(s => 
-        aiText.toLowerCase().includes(s.title.toLowerCase())
-      );
-
-      setMessages(prev => [...prev, { 
-        role: 'model', 
-        text: aiText,
-        suggestedService 
-      }]);
+      if (response.text) {
+        const textResponse = response.text;
+        setMessages(prev => [...prev, { role: 'model', text: textResponse }]);
+      }
     } catch (error) {
-      console.error("Gemini Error:", error);
-      setMessages(prev => [...prev, { 
-        role: 'model', 
-        text: "Sorry, I'm having trouble connecting right now." 
-      }]);
+      console.error("Chatbot error:", error);
+      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I'm having trouble connecting right now." }]);
     } finally {
       setIsLoading(false);
-                                   }
-    
-
-  const handleBookNow = (service: ServiceItem) => {
-    addToCart(service);
-    onNavigate(AppView.CHECKOUT);
-    onClose();
+    }
   };
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="w-full max-w-md h-[600px] bg-white rounded-[40px] shadow-2xl flex flex-col overflow-hidden"
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+        className="fixed bottom-24 right-5 w-[350px] max-w-[calc(100vw-40px)] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden z-[100] flex flex-col h-[500px] max-h-[70vh]"
+      >
+        {/* Header */}
+        <div className="bg-red-600 p-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <Sparkles size={20} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-sm">OrGo AI</h3>
+              <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">Smart Assistant</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
           >
-            {/* Header */}
-            <div className="p-8 bg-gradient-to-br from-red-600 to-red-700 text-white flex justify-between items-center rounded-t-[40px]">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur-md border border-white/20 shadow-inner">
-                  <Sparkles size={28} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black tracking-tight">OrGo AI</h3>
-                  <p className="text-[11px] opacity-90 uppercase tracking-[0.25em] font-black">Smart Assistant</p>
-                </div>
-              </div>
-              <button onClick={onClose} className="p-3 hover:bg-white/20 rounded-2xl transition-all active:scale-95">
-                <X size={24} />
-              </button>
-            </div>
-
-            {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 bg-white">
-              {messages.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-red-50 rounded-[40px] flex items-center justify-center mx-auto mb-8 border border-red-100 shadow-inner">
-                    <Sparkles className="text-red-600" size={48} />
-                  </div>
-                  <h4 className="text-2xl font-black text-gray-900 mb-3">Hello {userName}!</h4>
-                  <p className="text-sm text-gray-500 font-bold px-8 leading-relaxed">I'm your OrGo AI assistant. Tell me what's wrong and I'll find the perfect service for you.</p>
-                </div>
-              )}
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[90%] p-6 rounded-3xl ${
-                    m.role === 'user' 
-                      ? 'bg-red-600 text-white rounded-tr-none shadow-xl shadow-red-600/20' 
-                      : 'bg-gray-100 text-gray-800 rounded-tl-none shadow-sm border border-gray-200'
-                  }`}>
-                    <p className="text-[15px] font-medium leading-relaxed">{m.text}</p>
-                    {m.suggestedService && (
-                      <button
-                        onClick={() => handleBookNow(m.suggestedService!)}
-                        className="mt-5 w-full py-4 bg-white text-red-600 rounded-2xl text-sm font-black flex items-center justify-center gap-3 hover:bg-red-50 transition-all shadow-sm border border-red-100"
-                      >
-                        <ShoppingBag size={18} />
-                        Book {m.suggestedService.title}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 p-6 rounded-3xl rounded-tl-none shadow-sm border border-gray-200">
-                    <Loader2 className="animate-spin text-red-600" size={24} />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Input */}
-            <div className="p-6 bg-white border-t border-gray-100 rounded-b-[40px]">
-              <div className="flex gap-3 bg-gray-50 p-2 rounded-3xl border border-gray-100 focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-100 transition-all">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Type your message..."
-                  className="flex-1 bg-transparent px-4 py-3 text-sm font-bold focus:outline-none"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className="w-14 h-14 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/20 active:scale-95 transition-all disabled:opacity-50"
-                >
-                  <Send size={22} />
-                </button>
-              </div>
-            </div>
-          </motion.div>
+            <X size={20} />
+          </button>
         </div>
-      )}
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          {messages.map((msg, idx) => (
+            <div 
+              key={idx} 
+              className={`flex items-end gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+            >
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-red-100' : 'bg-white shadow-sm border border-gray-100'}`}>
+                {msg.role === 'user' ? <UserIcon size={14} className="text-red-600" /> : <Bot size={14} className="text-red-600" />}
+              </div>
+              <div 
+                className={`max-w-[75%] p-3 rounded-2xl text-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-red-600 text-white rounded-br-sm' 
+                    : 'bg-white text-gray-800 border border-gray-100 shadow-sm rounded-bl-sm'
+                }`}
+              >
+                {msg.text}
+              </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex items-end gap-2 flex-row">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-white shadow-sm border border-gray-100">
+                <Bot size={14} className="text-red-600" />
+              </div>
+              <div className="bg-white p-4 rounded-2xl rounded-bl-sm border border-gray-100 shadow-sm flex items-center gap-2">
+                <Loader2 size={16} className="text-red-600 animate-spin" />
+                <span className="text-xs text-gray-500 font-medium">Thinking...</span>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 bg-white border-t border-gray-100 shrink-0">
+          <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-2xl border border-gray-100 focus-within:border-red-200 focus-within:bg-white transition-colors">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Type your message..."
+              className="flex-1 bg-transparent border-none px-3 py-2 text-sm focus:outline-none text-gray-700"
+              disabled={isLoading}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="w-10 h-10 bg-red-600 text-white rounded-xl flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 transition-colors shrink-0"
+            >
+              <Send size={18} className="ml-1" />
+            </button>
+          </div>
+        </div>
+      </motion.div>
     </AnimatePresence>
   );
 };

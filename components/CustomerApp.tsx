@@ -311,6 +311,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const placeholders = ['Search for Plumbing', 'Search for AC Repair', 'Search for Home Cleaning', 'Search for Electrician'];
 
   const [currentBanner, setCurrentBanner] = useState(0);
+  const [showChatbot, setShowChatbot] = useState(false);
   const promoBanners = [
     {
       id: 1,
@@ -343,8 +344,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       image: 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=800'
     }
   ];
-
-  const [showChatbot, setShowChatbot] = useState(false);
 
   useEffect(() => {
     const pInterval = setInterval(() => {
@@ -1583,8 +1582,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
       {/* AI Support Chatbot */}
       <Chatbot 
-        userName={profile?.name || 'User'} 
-        onNavigate={setView} 
         isOpen={showChatbot} 
         onClose={() => setShowChatbot(false)} 
       />
