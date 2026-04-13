@@ -50,7 +50,7 @@ import { EditProfileModal } from './EditProfileModal';
 // import { AnimatedPromoHeader } from './AnimatedPromoHeader';
 
 const Image = ({ source, style, resizeMode }: { source: { uri: string }, style?: any, resizeMode?: 'cover' | 'contain' }) => {
-  const fallback = 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=800';
+  const fallback = 'https://images.unsplash.com/photo-1601760562234-9814eea6663a?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
   return (
     <img 
       src={source.uri || fallback} 
@@ -336,25 +336,25 @@ const QuickAccessCard = ({
   return (
     <motion.button
       onClick={onClick}
-      whileTap={{ scale: 0.95 }}
-      className={`relative flex flex-col items-center justify-center p-1 rounded-[20px] transition-all duration-300 w-full h-full ${
+      whileTap={{ scale: 0.96 }}
+      className={`relative flex flex-col items-center justify-center p-1 rounded-[22px] transition-all duration-500 w-full h-full ${
         isSelected 
-          ? 'bg-[#2a2d4a] shadow-inner z-10' 
-          : 'bg-[#25273c] opacity-80 hover:opacity-100 hover:bg-[#2a2d4a]'
+          ? 'bg-gradient-to-br from-red-600 to-red-700 shadow-[0_8px_20px_-4px_rgba(220,38,38,0.4)] z-10' 
+          : 'bg-[#1a1b2e] border border-white/5 hover:bg-[#22243a] hover:border-white/10'
       }`}
     >
       {isSelected && (
         <motion.div 
           layoutId="activeGlow"
-          className="absolute inset-0 rounded-[20px] border border-red-500/50 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]"
+          className="absolute inset-0 rounded-[22px] ring-2 ring-red-500/30 ring-inset"
           initial={false}
           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
         />
       )}
-      <div className="h-9 w-9 mb-1 flex items-center justify-center relative z-10">
+      <div className="h-8 w-8 mb-1 flex items-center justify-center relative z-10">
         <Icon />
       </div>
-      <span className={`text-[9px] font-bold text-center leading-tight relative z-10 px-0.5 ${
+      <span className={`text-[8px] font-bold text-center leading-tight relative z-10 px-0.5 ${
         isSelected ? 'text-white' : 'text-gray-400'
       }`}>
         {title}
@@ -387,6 +387,37 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [activeChatJob, setActiveChatJob] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
+    { role: 'model', text: 'Hi! I\'m Orgo AI. How can I help you with your home services today?' }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [isAILoading, setIsAILoading] = useState(false);
+
+  const handleAISubmit = async () => {
+    if (!aiInput.trim() || isAILoading) return;
+
+    const userMsg = aiInput.trim();
+    setAiInput('');
+    setAiMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setIsAILoading(true);
+
+    try {
+      const { getGeminiResponse } = await import('../src/services/geminiService');
+      const history = aiMessages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
+      
+      const response = await getGeminiResponse(userMsg, history);
+      setAiMessages(prev => [...prev, { role: 'model', text: response }]);
+    } catch (error) {
+      console.error("AI Error:", error);
+      setAiMessages(prev => [...prev, { role: 'model', text: "Sorry, I encountered an error. Please try again." }]);
+    } finally {
+      setIsAILoading(false);
+    }
+  };
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
@@ -458,7 +489,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       color: 'from-blue-600 to-blue-800',
       icon: <Wind size={80} className="text-white/10 absolute -right-4 -bottom-4 rotate-12" />,
       categoryName: 'AC Repair',
-      image: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800'
+      image: 'https://images.unsplash.com/photo-1759772238012-9d5ad59ae637?q=80&w=823&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
     },
     {
       id: 2,
@@ -468,7 +499,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       color: 'from-cyan-600 to-cyan-800',
       icon: <Droplets size={80} className="text-white/10 absolute -right-4 -bottom-4 rotate-12" />,
       categoryName: 'Plumbing',
-      image: 'https://images.pexels.com/photos/342800/pexels-photo-342800.jpeg?auto=compress&cs=tinysrgb&w=800'
+      image: 'https://images.unsplash.com/photo-1542013936693-884638332954?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
     },
     {
       id: 3,
@@ -478,7 +509,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       color: 'from-purple-600 to-purple-800',
       icon: <Sparkles size={80} className="text-white/10 absolute -right-4 -bottom-4 rotate-12" />,
       categoryName: 'Cleaning',
-      image: 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=800'
+      image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
     }
   ];
 
@@ -749,7 +780,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
               >
                 <div className="h-40 relative">
-                  <img src="https://images.pexels.com/photos/6195129/pexels-photo-6195129.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Room Cleaning" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Room Cleaning" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
                     Save 5%
                   </div>
@@ -776,7 +807,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
               >
                 <div className="h-40 relative">
-                  <img src="https://images.pexels.com/photos/2244746/pexels-photo-2244746.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Vehicle Repair" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src="https://images.unsplash.com/photo-1625047509168-a7026f36de04?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Vehicle Repair" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   <div className="absolute top-4 left-4 bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
                     Best Value
                   </div>
@@ -803,7 +834,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
               >
                 <div className="h-40 relative">
-                  <img src="https://images.pexels.com/photos/746496/pexels-photo-746496.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Packers and Movers" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src="https://images.unsplash.com/photo-1625047509168-a7026f36de04?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Packers and Movers" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   <div className="absolute top-4 left-4 bg-purple-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
                     New Launch
                   </div>
@@ -844,68 +875,51 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         </div>
       );
     } else if (activeTopTab === 'install') {
-      const installProducts = [
-        { id: 'ac-split', name: 'Split AC', image: 'https://images.pexels.com/photos/3680454/pexels-photo-3680454.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '2', subId: 'ac-general' },
-        { id: 'ac-window', name: 'Window AC', image: 'https://images.pexels.com/photos/1455683/pexels-photo-1455683.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '2', subId: 'ac-general' },
-        { id: 'tv', name: 'Television', image: 'https://images.pexels.com/photos/5721865/pexels-photo-5721865.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '5', subId: 'app-tv' },
-        { id: 'wp', name: 'Water Purifier', image: 'https://images.pexels.com/photos/6156543/pexels-photo-6156543.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '5', subId: 'app-wp' },
-        { id: 'sl', name: 'Smart Lock', image: 'https://images.pexels.com/photos/279810/pexels-photo-279810.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '13', subId: 'smart-general' },
-      ];
+      const installSubCategories: { cat: Category, sub: SubCategory }[] = [];
+      APP_CATEGORIES.forEach(c => {
+        c.subCategories.forEach(s => {
+          if (s.title.toLowerCase().includes('install')) {
+            installSubCategories.push({ cat: c, sub: s });
+          }
+        });
+      });
 
       return (
-        <div className="pt-6 px-5">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Installation Services</h3>
+        <div className="pt-6 px-5 pb-10">
+          <h3 className="text-xl font-bold text-gray-900 mb-4 tracking-tight">Installation Services</h3>
           <div className="grid grid-cols-2 gap-4">
-            {installProducts.map((prod, index) => (
+            {installSubCategories.map((item, index) => (
               <motion.div
-                key={prod.id}
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: index * 0.05, type: "spring", stiffness: 100 }}
-                whileHover={{ y: -4, scale: 1.02 }}
-                whileTap={{ scale: 0.95 }}
+                key={`${item.cat.id}-${item.sub.id}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
                 onClick={() => {
-                  const cat = APP_CATEGORIES.find(c => c.id === prod.categoryId);
-                  if (cat) {
-                    setSelectedCategory(cat);
-                    const sub = cat.subCategories.find(s => s.id === prod.subId);
-                    if (sub) {
-                      setSelectedSubCategory(sub);
-                      setView(AppView.SERVICE_DETAILS);
-                    } else {
-                      setView(AppView.SUB_CATEGORY);
-                    }
-                  }
+                  setSelectedCategory(item.cat);
+                  setSelectedSubCategory(item.sub);
+                  setView(AppView.SERVICE_DETAILS);
                 }}
-                className="relative aspect-[4/5] rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                className="bg-white rounded-[24px] p-3 shadow-sm border border-gray-100 flex flex-col gap-3 cursor-pointer hover:shadow-md transition-all active:scale-95"
               >
-                <img 
-                  src={prod.image} 
-                  alt={prod.name} 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                  style={{ width: '100%', height: '100%' }}
-                  referrerPolicy="no-referrer" 
-                />
-                
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                
-                {/* Wishlist Button */}
-                <button className="absolute top-4 right-4 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors z-10">
-                  <Heart size={16} strokeWidth={2.5} />
-                </button>
-
-                {/* Content */}
-                <div className="absolute bottom-4 left-4 right-4">
-                  <h4 className="text-white font-bold text-lg leading-tight mb-1">{prod.name}</h4>
-                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">
-                    Install
-                  </p>
+                <div className="aspect-square rounded-2xl overflow-hidden bg-gray-100">
+                  <img 
+                    src={item.sub.imageUrl || item.cat.imageUrl} 
+                    alt={item.sub.title} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
-
-                {/* Action Button */}
-                <div className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
-                  <ChevronRight size={16} strokeWidth={3} />
+                <div>
+                  <h4 className="text-[13px] font-bold text-gray-900 leading-tight line-clamp-2 min-h-[32px]">
+                    {item.sub.title}
+                  </h4>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[11px] font-bold text-red-600">₹{item.cat.priceStart}</span>
+                    <div className="flex items-center gap-0.5">
+                      <Star size={10} className="fill-yellow-400 text-yellow-400" />
+                      <span className="text-[10px] font-bold text-gray-600">4.8</span>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -932,63 +946,63 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         className="pb-32 bg-gray-50"
       >
         {/* Dark Top Section */}
-        <div className="bg-[#0f111a] pt-4 pb-6 rounded-b-[32px] shadow-xl relative z-20">
+        <div className="bg-[#0f111a] pt-3 pb-5 rounded-b-[32px] shadow-xl relative z-20">
           {/* Location Header */}
-          <div className="px-5 pb-3 flex items-center justify-between">
+          <div className="px-5 pb-2 flex items-center justify-between">
             <div 
               onClick={() => setIsSelectingAddress(true)}
               className="flex flex-col cursor-pointer group"
             >
               <div className="flex items-center gap-1.5">
-                <MapPin size={16} className="text-white" strokeWidth={2.5} />
+                <MapPin size={15} className="text-white" strokeWidth={2.5} />
                 <span className="text-sm font-bold text-white group-hover:text-gray-200 transition-colors">
                   {displayAddress}
                 </span>
-                <ChevronRight size={14} className="text-gray-400" />
+                <ChevronRight size={13} className="text-gray-400" />
               </div>
-              <p className="text-xs text-gray-400 font-medium truncate max-w-[220px] mt-0.5">
+              <p className="text-[11px] text-gray-400 font-medium truncate max-w-[220px] mt-0.5">
                 {displaySubAddress}
               </p>
             </div>
             <div className="flex items-center gap-4 relative">
               <button 
                 onClick={() => setShowEditProfile(true)}
-                className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden border-2 border-white"
+                className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden border-2 border-white"
               >
-                {user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <UserIcon size={20} className="text-gray-500" strokeWidth={2.5} />}
+                {user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <UserIcon size={18} className="text-gray-500" strokeWidth={2.5} />}
               </button>
             </div>
           </div>
 
           {/* Search Area */}
-          <div className="px-5 mt-1">
-            <div className="relative h-[44px]">
+          <div className="px-5 mt-0.5">
+            <div className="relative h-[40px]">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <Search size={18} strokeWidth={2.5} />
+                <Search size={16} strokeWidth={2.5} />
               </div>
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={placeholders[placeholderIndex]}
-                className="w-full h-full pl-11 pr-11 bg-[#1a1b2e] border border-white/10 rounded-2xl text-sm font-medium focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all text-white placeholder:text-gray-500"
+                className="w-full h-full pl-10 pr-10 bg-[#1a1b2e] border border-white/10 rounded-2xl text-[13px] font-medium focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all text-white placeholder:text-gray-500"
               />
               {searchQuery ? (
                 <button 
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-11 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  className="absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                 >
-                  <X size={16} />
+                  <X size={14} />
                 </button>
               ) : null}
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-500 border-l border-white/10 pl-2.5 cursor-pointer">
-                <Mic size={18} strokeWidth={2.5} />
+                <Mic size={16} strokeWidth={2.5} />
               </div>
             </div>
           </div>
 
           {/* Quick Access Banner */}
-          <div className="bg-[#1a1b2e] p-2 rounded-[24px] shadow-inner mx-4 mt-4 border border-white/10 h-[90px]">
+          <div className="bg-[#1a1b2e] p-1.5 rounded-[24px] shadow-inner mx-4 mt-3 border border-white/10 h-[84px]">
             <div className="flex items-stretch justify-between gap-2 h-full">
               <QuickAccessCard title="Repair & Care" icon={RepairIllustration} isSelected={activeTopTab === 'repair'} onClick={() => setActiveTopTab('repair')} />
               <QuickAccessCard title="Vehicle Emergency" icon={VehicleIllustration} isSelected={activeTopTab === 'vehicle'} onClick={() => setActiveTopTab('vehicle')} />
@@ -1003,6 +1017,16 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         ) : (
           renderTabContent()
         )}
+
+        {/* Floating AI Button */}
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setShowAIAssistant(true)}
+          className="fixed bottom-24 right-6 w-14 h-14 bg-red-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/30 z-40 border-2 border-white"
+        >
+          <Sparkles size={24} />
+        </motion.button>
       </motion.div>
     );
   };
@@ -1045,9 +1069,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           <div className="px-5 space-y-6 mt-4">
             {selectedCategory.subCategories.map((sub) => {
               const isLarge = sub.title.includes('Large');
-              const bgImage = isLarge 
-                ? 'https://images.pexels.com/photos/5824485/pexels-photo-5824485.jpeg?auto=compress&cs=tinysrgb&w=800'
-                : 'https://images.pexels.com/photos/5591460/pexels-photo-5591460.jpeg?auto=compress&cs=tinysrgb&w=800';
+              const bgImage = sub.imageUrl || 'https://images.unsplash.com/photo-1601760562234-9814eea6663a?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
               const description = isLarge
                 ? 'Washing Machine, Fridge, TV & more'
                 : 'Microwave, RO, Laptops & more';
@@ -1387,17 +1409,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
     const devices = selectedSubCategory.title === 'Large Appliances' 
       ? [
-          { name: 'Washing Machine', imageUrl: 'https://images.pexels.com/photos/5591460/pexels-photo-5591460.jpeg?auto=compress&cs=tinysrgb&w=400' },
-          { name: 'Refrigerator', imageUrl: 'https://images.pexels.com/photos/5824485/pexels-photo-5824485.jpeg?auto=compress&cs=tinysrgb&w=400' },
-          { name: 'Television', imageUrl: 'https://images.pexels.com/photos/5721865/pexels-photo-5721865.jpeg?auto=compress&cs=tinysrgb&w=400' }
+          { name: 'Washing Machine', imageUrl: 'https://images.unsplash.com/photo-1626806819282-2c1dc01a5e0c?q=80&w=870&auto=format&fit=crop' },
+          { name: 'Refrigerator', imageUrl: 'https://images.unsplash.com/photo-1721613877687-c9099b698faa?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+          { name: 'Television', imageUrl: 'https://images.unsplash.com/photo-1567690187548-f07b1d7bf5a9?q=80&w=736&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' }
         ]
       : [
-          { name: 'Microwave', imageUrl: 'https://images.pexels.com/photos/213162/pexels-photo-213162.jpeg?auto=compress&cs=tinysrgb&w=400' },
-          { name: 'Chimney', imageUrl: 'https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&cs=tinysrgb&w=400' },
-          { name: 'Stove', imageUrl: 'https://images.pexels.com/photos/2062426/pexels-photo-2062426.jpeg?auto=compress&cs=tinysrgb&w=400' },
-          { name: 'Laptop', imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=400' },
-          { name: 'Water Purifier/RO', imageUrl: 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=400' },
-          { name: 'Geyser', imageUrl: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?q=80&w=800' }
+          { name: 'Microwave', imageUrl: 'https://images.unsplash.com/photo-1723259461381-59ab9fa18f5d?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+          { name: 'Chimney', imageUrl: 'https://images.unsplash.com/photo-1642979430180-e676c2235ce2?q=80&w=1032&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+          { name: 'Stove', imageUrl: 'https://images.unsplash.com/photo-1609211373254-b52e03ba0c85?q=80&w=776&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+          { name: 'Laptop', imageUrl: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=871&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+          { name: 'Water Purifier/RO', imageUrl: 'https://images.unsplash.com/photo-1662460149789-5aebed905701?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+          { name: 'Geyser', imageUrl: 'https://images.unsplash.com/photo-1714894691666-e8bb020c781c?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' }
         ];
 
     return (
@@ -1468,6 +1490,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </button>
         </div>
       </div>
+      
+      {/* Floating AI Button for Orders View */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setShowAIAssistant(true)}
+        className="fixed bottom-24 right-6 w-14 h-14 bg-red-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/30 z-40 border-2 border-white"
+      >
+        <Sparkles size={24} />
+      </motion.button>
+
       <div className="p-5 space-y-5">
         {orders.length === 0 && !loadingOrders ? (
           <div className="text-center py-24">
@@ -1677,6 +1710,83 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     </motion.div>
   );
 
+  const renderAIAssistant = () => (
+    <AnimatePresence>
+      {showAIAssistant && (
+        <motion.div
+          initial={{ opacity: 0, y: '100%' }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: '100%' }}
+          className="fixed inset-0 z-[110] bg-white flex flex-col"
+        >
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/20">
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Orgo AI</h3>
+                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Online • Intelligent Assistant</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowAIAssistant(false)}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-gray-50/50">
+            {aiMessages.map((msg, idx) => (
+              <div 
+                key={idx} 
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-red-600 text-white rounded-tr-none shadow-md' 
+                    : 'bg-white text-gray-700 rounded-tl-none border border-gray-100 shadow-sm'
+                }`}>
+                  <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                </div>
+              </div>
+            ))}
+            {isAILoading && (
+              <div className="flex justify-start">
+                <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex gap-1">
+                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 bg-white border-t border-gray-100 pb-10">
+            <div className="flex gap-3 items-center bg-gray-50 p-2 rounded-2xl border border-gray-100">
+              <input 
+                type="text" 
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAISubmit()}
+                placeholder="Ask me anything about our services..."
+                className="flex-1 bg-transparent border-none focus:ring-0 text-sm p-2 font-medium"
+              />
+              <button 
+                onClick={handleAISubmit}
+                disabled={!aiInput.trim() || isAILoading}
+                className="w-10 h-10 bg-red-600 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-red-600/20"
+              >
+                <Send size={18} />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
       <div className="bg-white min-h-screen">
@@ -1720,6 +1830,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           )}
         </AnimatePresence>
       </div>
+      {renderAIAssistant()}
 
       {/* Sticky Cart Bar */}
       <AnimatePresence>

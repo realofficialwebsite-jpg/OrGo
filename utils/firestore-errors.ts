@@ -49,16 +49,20 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   };
   // Safe stringify to handle potential circular references
   const safeStringify = (obj: any) => {
-    const cache = new WeakSet();
-    return JSON.stringify(obj, (key, value) => {
-      if (typeof value === "object" && value !== null) {
-        if (cache.has(value)) {
-          return "[Circular]";
+    try {
+      const cache = new Set();
+      return JSON.stringify(obj, (key, value) => {
+        if (typeof value === "object" && value !== null) {
+          if (cache.has(value)) {
+            return "[Circular]";
+          }
+          cache.add(value);
         }
-        cache.add(value);
-      }
-      return value;
-    });
+        return value;
+      });
+    } catch (e) {
+      return "[Serialization Error]";
+    }
   };
 
   const errorString = safeStringify(errInfo);

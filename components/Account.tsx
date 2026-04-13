@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { User, signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { User, signOut, deleteUser } from 'firebase/auth';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../src/firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestore-errors';
 import { 
@@ -51,7 +51,8 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
     phone: ''
   });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editData, setEditData] = useState({ name: '', email: '' });
+  const [editData, setEditData] = useState({ name: '', email: '', photo: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Hooks moved from sub-render functions to comply with Rules of Hooks
   const [editingAddress, setEditingAddress] = useState<{data: any, index: number} | null>(null);
@@ -97,7 +98,11 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
 
   useEffect(() => {
     if (profile) {
-      setEditData({ name: profile.name, email: profile.email });
+      setEditData({ 
+        name: profile.name || '', 
+        email: profile.email || '', 
+        photo: profile.photo || '' 
+      });
     }
   }, [profile]);
 
@@ -129,13 +134,38 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         name: editData.name,
-        email: editData.email
+        email: editData.email,
+        photo: editData.photo
       });
       setIsEditingProfile(false);
       onUpdateProfile();
       fetchProfile();
     } catch (error) {
       console.error("Error updating profile:", error);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Are you sure you want to delete your account? This action is irreversible and all your data (profile, addresses, favorites) will be permanently lost.')) return;
+    
+    setIsDeleting(true);
+    try {
+      // 1. Delete Firestore document
+      await deleteDoc(doc(db, 'users', user.uid));
+      
+      // 2. Delete Firebase Auth user
+      await deleteUser(user);
+      
+      onLogout();
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      if (error.code === 'auth/requires-recent-login') {
+        alert("For security reasons, you must have recently logged in to delete your account. Please logout and login again, then try deleting your account.");
+      } else {
+        alert("Failed to delete account: " + (error.message || "Unknown error"));
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -509,20 +539,36 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
 
         {isEditingProfile ? (
           <div className="space-y-4 max-w-xs mx-auto">
-            <input
-              type="text"
-              value={editData.name}
-              onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-              className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-center font-bold text-lg focus:ring-2 focus:ring-primary/20 outline-none"
-              placeholder="Your Name"
-            />
-            <input
-              type="email"
-              value={editData.email}
-              onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-              className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-center text-gray-600 focus:ring-2 focus:ring-primary/20 outline-none"
-              placeholder="Your Email"
-            />
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 text-left px-1">Full Name</label>
+              <input
+                type="text"
+                value={editData.name}
+                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-center font-bold text-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="Your Name"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 text-left px-1">Email Address</label>
+              <input
+                type="email"
+                value={editData.email}
+                onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-center text-gray-600 focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="Your Email"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 text-left px-1">Photo URL</label>
+              <input
+                type="text"
+                value={editData.photo}
+                onChange={(e) => setEditData({ ...editData, photo: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-center text-xs text-gray-500 focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="Photo URL"
+              />
+            </div>
             <div className="flex gap-2">
               <button 
                 onClick={() => setIsEditingProfile(false)}
@@ -602,6 +648,14 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
           className="w-full p-4 flex items-center justify-center gap-2 bg-red-50 text-red-600 rounded-2xl font-bold"
         >
           <LogOut size={20} /> Logout
+        </button>
+        <button 
+          onClick={handleDeleteAccount}
+          disabled={isDeleting}
+          className="w-full p-4 flex items-center justify-center gap-2 text-red-400 font-bold text-sm hover:text-red-600 transition-colors"
+        >
+          {isDeleting ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
+          Delete Account
         </button>
       </div>
 
