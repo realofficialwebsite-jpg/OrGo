@@ -48,7 +48,7 @@ export const orgoServices: Category[] = [
       id: `ac-sub-${index}`,
       title: sub,
       icon: 'wind',
-      imageUrl: 'https://pixabay.com/images/download/alflucio-air-conditioner-6605973_1920.jpg',
+      imageUrl: 'https://images.unsplash.com/photo-1762341123870-d706f257a12e?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
       items: [
         {
           id: `ac-item-${index}`,
@@ -57,7 +57,7 @@ export const orgoServices: Category[] = [
           reviews: '2.5k',
           price: 499,
           descriptionPoints: ['Expert technician', '30-day warranty', 'Genuine spare parts'],
-          imageUrl: 'https://pixabay.com/images/download/alflucio-air-conditioner-6605973_1920.jpg'
+          imageUrl: 'https://images.unsplash.com/photo-1762341123870-d706f257a12e?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
         }
       ]
     }))
