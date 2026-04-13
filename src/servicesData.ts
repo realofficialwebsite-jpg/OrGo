@@ -36,7 +36,7 @@ export const orgoServices: Category[] = [
     name: 'AC Repair',
     icon: 'wind',
     priceStart: 499,
-    imageUrl: 'https://images.unsplash.com/photo-1681042803902-f79c240d8f03?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800',
     category: 'Appliances',
     color: 'cyan',
     tag: 'Trending',
@@ -48,7 +48,7 @@ export const orgoServices: Category[] = [
       id: `ac-sub-${index}`,
       title: sub,
       icon: 'wind',
-      imageUrl: 'https://images.unsplash.com/photo-1681042803902-f79c240d8f03?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+      imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800',
       items: [
         {
           id: `ac-item-${index}`,

@@ -32,7 +32,9 @@ import {
   X,
   Send,
   Bot,
-  Heart
+  Heart,
+  Mic,
+  Lock
 } from 'lucide-react';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db } from '../src/firebase';
@@ -221,6 +223,143 @@ const CancellationModal: React.FC<{
         </div>
       </motion.div>
     </motion.div>
+  );
+};
+
+const RepairIllustration = () => (
+  <div className="relative w-full h-full flex items-center justify-center">
+    <svg viewBox="0 0 64 64" className="w-full h-full drop-shadow-sm" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M32 10L10 28v24a4 4 0 004 4h36a4 4 0 004-4V28L32 10z" fill="#FEE2E2" stroke="#EF4444" strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M24 56V40a4 4 0 014-4h8a4 4 0 014 4v16" fill="#FECACA" stroke="#EF4444" strokeWidth="2" strokeLinejoin="round"/>
+      <motion.g
+        animate={{ scale: [1, 1.1, 1], y: [0, -2, 0] }}
+        transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+      >
+        <rect x="36" y="24" width="16" height="12" rx="2" fill="#3B82F6" stroke="#1D4ED8" strokeWidth="2"/>
+        <path d="M40 24v-4a2 2 0 012-2h4a2 2 0 012 2v4" stroke="#1D4ED8" strokeWidth="2" strokeLinecap="round"/>
+        <motion.path 
+          d="M36 30h16" 
+          stroke="#93C5FD" 
+          strokeWidth="2"
+          animate={{ y: [0, -2, 0] }}
+          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+        />
+      </motion.g>
+      <motion.path 
+        d="M16 20l2-2M12 24l-2-2" 
+        stroke="#F59E0B" 
+        strokeWidth="2" 
+        strokeLinecap="round"
+        animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }}
+        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+      />
+    </svg>
+  </div>
+);
+
+const VehicleIllustration = () => (
+  <div className="relative w-full h-full flex items-center justify-center">
+    <svg viewBox="0 0 64 64" className="w-full h-full drop-shadow-sm" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <motion.g
+        animate={{ x: [-1, 1, -1], y: [0, -1, 0] }}
+        transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+      >
+        <path d="M14 36h36v10a4 4 0 01-4 4H18a4 4 0 01-4-4V36z" fill="#3B82F6" stroke="#1D4ED8" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M18 36l6-14h16l6 14" fill="#DBEAFE" stroke="#1D4ED8" strokeWidth="2" strokeLinejoin="round"/>
+        <circle cx="22" cy="46" r="6" fill="#1E293B" stroke="#475569" strokeWidth="2"/>
+        <circle cx="42" cy="46" r="6" fill="#1E293B" stroke="#475569" strokeWidth="2"/>
+        <path d="M26 36h12" stroke="#1D4ED8" strokeWidth="2" strokeLinecap="round"/>
+      </motion.g>
+      <motion.g
+        animate={{ opacity: [0.2, 1, 0.2] }}
+        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+      >
+        <path d="M8 32l-4-4M56 32l4-4M32 14v-6" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"/>
+      </motion.g>
+    </svg>
+  </div>
+);
+
+const ElectricalIllustration = () => (
+  <div className="relative w-full h-full flex items-center justify-center">
+    <svg viewBox="0 0 64 64" className="w-full h-full drop-shadow-sm" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="18" y="14" width="28" height="36" rx="6" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
+      <circle cx="26" cy="26" r="3" fill="#64748B"/>
+      <circle cx="38" cy="26" r="3" fill="#64748B"/>
+      <rect x="28" y="36" width="8" height="6" rx="2" fill="#64748B"/>
+      <motion.g
+        animate={{ 
+          scale: [1, 1.15, 1], 
+          filter: ["drop-shadow(0 0 2px rgba(245,158,11,0.4))", "drop-shadow(0 0 10px rgba(245,158,11,0.8))", "drop-shadow(0 0 2px rgba(245,158,11,0.4))"] 
+        }}
+        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+      >
+        <path d="M38 6L22 30h12l-4 28 20-30H36l6-22z" fill="#F59E0B" stroke="#D97706" strokeWidth="1.5" strokeLinejoin="round"/>
+      </motion.g>
+    </svg>
+  </div>
+);
+
+const InstallationIllustration = () => (
+  <div className="relative w-full h-full flex items-center justify-center">
+    <svg viewBox="0 0 64 64" className="w-full h-full drop-shadow-sm" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <motion.g
+        animate={{ y: [2, -3, 2] }}
+        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+      >
+        <rect x="14" y="16" width="36" height="18" rx="3" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
+        <path d="M18 22h28M18 28h28" stroke="#475569" strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="44" cy="25" r="2" fill="#10B981"/>
+      </motion.g>
+      <motion.g
+        animate={{ y: [2, -3, 2] }}
+        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+      >
+        <path d="M32 40v14M22 46l10-6 10 6" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M28 54h8" stroke="#10B981" strokeWidth="3" strokeLinecap="round"/>
+      </motion.g>
+    </svg>
+  </div>
+);
+
+const QuickAccessCard = ({ 
+  title, 
+  icon: Icon, 
+  isSelected, 
+  onClick 
+}: { 
+  title: string, 
+  icon: React.FC, 
+  isSelected: boolean, 
+  onClick: () => void 
+}) => {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.95 }}
+      className={`relative flex flex-col items-center justify-center p-1 rounded-[20px] transition-all duration-300 w-full h-full ${
+        isSelected 
+          ? 'bg-[#2a2d4a] shadow-inner z-10' 
+          : 'bg-[#25273c] opacity-80 hover:opacity-100 hover:bg-[#2a2d4a]'
+      }`}
+    >
+      {isSelected && (
+        <motion.div 
+          layoutId="activeGlow"
+          className="absolute inset-0 rounded-[20px] border border-red-500/50 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]"
+          initial={false}
+          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+        />
+      )}
+      <div className="h-9 w-9 mb-1 flex items-center justify-center relative z-10">
+        <Icon />
+      </div>
+      <span className={`text-[9px] font-bold text-center leading-tight relative z-10 px-0.5 ${
+        isSelected ? 'text-white' : 'text-gray-400'
+      }`}>
+        {title}
+      </span>
+    </motion.button>
   );
 };
 
@@ -444,6 +583,338 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
   // --- Renderers ---
 
+  const [activeTopTab, setActiveTopTab] = useState('repair');
+
+  const renderCategoryCard = (cat: Category, index: number) => (
+    <motion.div
+      key={cat.id}
+      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ delay: index * 0.05, type: "spring", stiffness: 100 }}
+      whileHover={{ y: -4, scale: 1.02 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => handleCategoryClick(cat)}
+      className="relative aspect-[4/5] rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+    >
+      <img 
+        src={cat.imageUrl || `https://source.unsplash.com/featured/800x600?${cat.name.replace(/\s+/g, '')},repair,professional`} 
+        alt={cat.name} 
+        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+        style={{ width: '100%', height: '100%' }}
+        referrerPolicy="no-referrer" 
+      />
+      
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+      
+      {/* Wishlist Button */}
+      <button className="absolute top-4 right-4 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors z-10">
+        <Heart size={16} strokeWidth={2.5} />
+      </button>
+
+      {/* Tag */}
+      {cat.tag && (
+        <div className="absolute top-4 left-4 bg-white px-3 py-1 rounded-full text-[10px] font-black text-red-600 uppercase tracking-wider shadow-sm">
+          {cat.tag}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="absolute bottom-4 left-4 right-4">
+        <h4 className="text-white font-bold text-lg leading-tight mb-1">{cat.name}</h4>
+        <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">
+          Starts at ₹{cat.priceStart}
+        </p>
+      </div>
+
+      {/* Action Button */}
+      <div className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
+        <ChevronRight size={16} strokeWidth={3} />
+      </div>
+    </motion.div>
+  );
+
+  const renderTabContent = () => {
+    const enhancedCategories = APP_CATEGORIES.map(cat => ({ ...cat }));
+    const filterOptions = ['All', ...Array.from(new Set(APP_CATEGORIES.map(c => c.category || 'Other')))];
+    const filteredCategories = selectedFilter === 'All' 
+      ? enhancedCategories 
+      : enhancedCategories.filter(c => (c.category || 'Other') === selectedFilter);
+
+    if (activeTopTab === 'repair') {
+      return (
+        <div className="space-y-8 pt-6">
+          {/* Carousel Promo Banner */}
+          <div className="px-5">
+            <div className="relative h-60 rounded-[32px] overflow-hidden shadow-2xl shadow-black/5 cursor-pointer"
+                 onClick={() => {
+                   const cat = APP_CATEGORIES.find(c => c.name === promoBanners[currentBanner].categoryName);
+                   if (cat) handleCategoryClick(cat);
+                 }}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentBanner}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8 }}
+                  className="absolute inset-0 bg-gray-900"
+                >
+                  <motion.img 
+                    src={promoBanners[currentBanner].image} 
+                    alt="Promo" 
+                    initial={{ scale: 1.1 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 5 }}
+                    className="w-full h-full object-cover opacity-50" 
+                    referrerPolicy="no-referrer" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-8 flex flex-col justify-end">
+                    <div className="relative z-10">
+                      <h2 className="text-2xl font-bold text-white leading-tight mb-2 tracking-tight">
+                        {promoBanners[currentBanner].title}
+                      </h2>
+                      <p className="text-white/70 text-sm font-medium mb-6">
+                        {promoBanners[currentBanner].subtitle}
+                      </p>
+                      <button 
+                        className="px-8 py-3 bg-white text-gray-900 rounded-2xl font-bold text-xs tracking-widest shadow-xl hover:bg-gray-100 transition-colors"
+                      >
+                        {promoBanners[currentBanner].buttonText}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+              
+              {/* Dots */}
+              {promoBanners.length > 1 && (
+                <div className="absolute top-8 right-8 flex gap-1.5 z-20">
+                  {promoBanners.map((_, idx) => (
+                    <div 
+                      key={idx}
+                      className={`h-1 rounded-full transition-all duration-500 ${idx === currentBanner ? 'w-6 bg-white' : 'w-1.5 bg-white/30'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Browse by Type & Grid */}
+          <div className="px-5">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Browse by Type</h3>
+            
+            {/* Filter Pills */}
+            <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar -mx-5 px-5 mb-2">
+              {filterOptions.map(option => (
+                <button
+                  key={option}
+                  onClick={() => setSelectedFilter(option)}
+                  className={`px-5 py-2.5 rounded-full whitespace-nowrap font-bold text-sm transition-all ${
+                    selectedFilter === option
+                      ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+
+            {/* 2-Column Service Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              {filteredCategories.map((cat, index) => renderCategoryCard(cat, index))}
+            </div>
+          </div>
+
+          {/* Offers & Discounts Sliding Banner */}
+          <div className="mt-12 px-5">
+            <div className="flex justify-between items-end mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 tracking-tight">Exclusive Offers</h3>
+                <p className="text-sm text-gray-500 font-medium">Handpicked deals for you</p>
+              </div>
+              <button className="text-red-600 text-xs font-bold tracking-widest hover:underline">VIEW ALL</button>
+            </div>
+            
+            <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar -mx-5 px-5 snap-x snap-mandatory">
+              {/* Offer 1 */}
+              <motion.div 
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  const cat = APP_CATEGORIES.find(c => c.id === '3');
+                  if (cat) handleCategoryClick(cat);
+                }}
+                className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
+              >
+                <div className="h-40 relative">
+                  <img src="https://images.pexels.com/photos/6195129/pexels-photo-6195129.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Room Cleaning" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                    Save 5%
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                    Room cleaning starting at ₹399
+                  </h4>
+                  <p className="text-sm text-gray-500 font-medium mb-4">Professional deep cleaning service</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-600 tracking-widest">LIMITED TIME</span>
+                    <ChevronRight size={20} className="text-gray-400" />
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Offer 2 */}
+              <motion.div 
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  const cat = APP_CATEGORIES.find(c => c.id === '7');
+                  if (cat) handleCategoryClick(cat);
+                }}
+                className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
+              >
+                <div className="h-40 relative">
+                  <img src="https://images.pexels.com/photos/2244746/pexels-photo-2244746.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Vehicle Repair" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="absolute top-4 left-4 bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                    Best Value
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                    Vehicle repair & servicing
+                  </h4>
+                  <p className="text-sm text-gray-500 font-medium mb-4">Pay after 100% satisfaction</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-600 tracking-widest">TOP RATED</span>
+                    <ChevronRight size={20} className="text-gray-400" />
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Offer 3 */}
+              <motion.div 
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  const cat = APP_CATEGORIES.find(c => c.id === '9');
+                  if (cat) handleCategoryClick(cat);
+                }}
+                className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
+              >
+                <div className="h-40 relative">
+                  <img src="https://images.pexels.com/photos/746496/pexels-photo-746496.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Packers and Movers" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="absolute top-4 left-4 bg-purple-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                    New Launch
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                    Packers and movers
+                  </h4>
+                  <p className="text-sm text-gray-500 font-medium mb-4">Safe and secure relocation</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-purple-600 tracking-widest">EXPLORE</span>
+                    <ChevronRight size={20} className="text-gray-400" />
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      );
+    } else if (activeTopTab === 'vehicle') {
+      const vehicleCategories = APP_CATEGORIES.filter(c => c.category === 'Vehicle');
+      return (
+        <div className="pt-6 px-5">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Vehicle Emergency Services</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {vehicleCategories.map((cat, index) => renderCategoryCard(cat, index))}
+          </div>
+        </div>
+      );
+    } else if (activeTopTab === 'electrical') {
+      const electricalCategories = APP_CATEGORIES.filter(c => c.name === 'Electrician' || c.name === 'Home Security');
+      return (
+        <div className="pt-6 px-5">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Electrical Services</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {electricalCategories.map((cat, index) => renderCategoryCard(cat, index))}
+          </div>
+        </div>
+      );
+    } else if (activeTopTab === 'install') {
+      const installProducts = [
+        { id: 'ac-split', name: 'Split AC', image: 'https://images.pexels.com/photos/3680454/pexels-photo-3680454.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '2', subId: 'ac-general' },
+        { id: 'ac-window', name: 'Window AC', image: 'https://images.pexels.com/photos/1455683/pexels-photo-1455683.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '2', subId: 'ac-general' },
+        { id: 'tv', name: 'Television', image: 'https://images.pexels.com/photos/5721865/pexels-photo-5721865.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '5', subId: 'app-tv' },
+        { id: 'wp', name: 'Water Purifier', image: 'https://images.pexels.com/photos/6156543/pexels-photo-6156543.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '5', subId: 'app-wp' },
+        { id: 'sl', name: 'Smart Lock', image: 'https://images.pexels.com/photos/279810/pexels-photo-279810.jpeg?auto=compress&cs=tinysrgb&w=400', categoryId: '13', subId: 'smart-general' },
+      ];
+
+      return (
+        <div className="pt-6 px-5">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Installation Services</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {installProducts.map((prod, index) => (
+              <motion.div
+                key={prod.id}
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ delay: index * 0.05, type: "spring", stiffness: 100 }}
+                whileHover={{ y: -4, scale: 1.02 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  const cat = APP_CATEGORIES.find(c => c.id === prod.categoryId);
+                  if (cat) {
+                    setSelectedCategory(cat);
+                    const sub = cat.subCategories.find(s => s.id === prod.subId);
+                    if (sub) {
+                      setSelectedSubCategory(sub);
+                      setView(AppView.SERVICE_DETAILS);
+                    } else {
+                      setView(AppView.SUB_CATEGORY);
+                    }
+                  }
+                }}
+                className="relative aspect-[4/5] rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+              >
+                <img 
+                  src={prod.image} 
+                  alt={prod.name} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                  style={{ width: '100%', height: '100%' }}
+                  referrerPolicy="no-referrer" 
+                />
+                
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                
+                {/* Wishlist Button */}
+                <button className="absolute top-4 right-4 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors z-10">
+                  <Heart size={16} strokeWidth={2.5} />
+                </button>
+
+                {/* Content */}
+                <div className="absolute bottom-4 left-4 right-4">
+                  <h4 className="text-white font-bold text-lg leading-tight mb-1">{prod.name}</h4>
+                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">
+                    Install
+                  </p>
+                </div>
+
+                {/* Action Button */}
+                <div className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
+                  <ChevronRight size={16} strokeWidth={3} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+  };
+
   const renderHome = () => {
     const displayAddress = selectedAddress 
       ? (selectedAddress.type === 'Current Location' ? 'Current Location' : selectedAddress.type)
@@ -453,53 +924,45 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       ? (selectedAddress.type === 'Current Location' ? currentLocation : `${selectedAddress.flatNo}, ${selectedAddress.street}, ${selectedAddress.city}`)
       : 'Tap to set your booking address';
 
-    const enhancedCategories = APP_CATEGORIES.map(cat => {
-      return { ...cat };
-    });
-
-    const filterOptions = ['All', ...Array.from(new Set(APP_CATEGORIES.map(c => c.category || 'Other')))];
-    const filteredCategories = selectedFilter === 'All' 
-      ? enhancedCategories 
-      : enhancedCategories.filter(c => (c.category || 'Other') === selectedFilter);
-
     return (
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="pb-32 bg-white"
+        className="pb-32 bg-gray-50"
       >
-        {/* Location Header */}
-        <div className="px-5 pt-6 pb-4 bg-white sticky top-0 z-30 border-b border-gray-50">
-          <div className="flex items-center justify-between mb-5">
+        {/* Dark Top Section */}
+        <div className="bg-[#0f111a] pt-4 pb-6 rounded-b-[32px] shadow-xl relative z-20">
+          {/* Location Header */}
+          <div className="px-5 pb-3 flex items-center justify-between">
             <div 
               onClick={() => setIsSelectingAddress(true)}
               className="flex flex-col cursor-pointer group"
             >
               <div className="flex items-center gap-1.5">
-                <MapPin size={16} className="text-red-600" strokeWidth={2.5} />
-                <span className="text-sm font-bold text-gray-900 group-hover:text-red-600 transition-colors">
+                <MapPin size={16} className="text-white" strokeWidth={2.5} />
+                <span className="text-sm font-bold text-white group-hover:text-gray-200 transition-colors">
                   {displayAddress}
                 </span>
                 <ChevronRight size={14} className="text-gray-400" />
               </div>
-              <p className="text-xs text-gray-500 font-medium truncate max-w-[220px] mt-0.5">
+              <p className="text-xs text-gray-400 font-medium truncate max-w-[220px] mt-0.5">
                 {displaySubAddress}
               </p>
             </div>
             <div className="flex items-center gap-4 relative">
               <button 
                 onClick={() => setShowEditProfile(true)}
-                className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 hover:bg-gray-100 transition-colors"
+                className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden border-2 border-white"
               >
                 {user?.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <UserIcon size={20} className="text-gray-500" strokeWidth={2.5} />}
               </button>
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 h-[52px]">
+          {/* Search Area */}
+          <div className="px-5 mt-1">
+            <div className="relative h-[44px]">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                 <Search size={18} strokeWidth={2.5} />
               </div>
@@ -508,16 +971,29 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={placeholders[placeholderIndex]}
-                className="w-full h-full pl-11 pr-4 bg-gray-100 border-none rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:bg-white transition-all placeholder:transition-all placeholder:duration-500"
+                className="w-full h-full pl-11 pr-11 bg-[#1a1b2e] border border-white/10 rounded-2xl text-sm font-medium focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all text-white placeholder:text-gray-500"
               />
-              {searchQuery && (
+              {searchQuery ? (
                 <button 
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-11 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                 >
                   <X size={16} />
                 </button>
-              )}
+              ) : null}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-500 border-l border-white/10 pl-2.5 cursor-pointer">
+                <Mic size={18} strokeWidth={2.5} />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Access Banner */}
+          <div className="bg-[#1a1b2e] p-2 rounded-[24px] shadow-inner mx-4 mt-4 border border-white/10 h-[90px]">
+            <div className="flex items-stretch justify-between gap-2 h-full">
+              <QuickAccessCard title="Repair & Care" icon={RepairIllustration} isSelected={activeTopTab === 'repair'} onClick={() => setActiveTopTab('repair')} />
+              <QuickAccessCard title="Vehicle Emergency" icon={VehicleIllustration} isSelected={activeTopTab === 'vehicle'} onClick={() => setActiveTopTab('vehicle')} />
+              <QuickAccessCard title="Electrical" icon={ElectricalIllustration} isSelected={activeTopTab === 'electrical'} onClick={() => setActiveTopTab('electrical')} />
+              <QuickAccessCard title="Install / Reinstall" icon={InstallationIllustration} isSelected={activeTopTab === 'install'} onClick={() => setActiveTopTab('install')} />
             </div>
           </div>
         </div>
@@ -525,254 +1001,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         {searchQuery.length > 1 ? (
           renderSearchResults()
         ) : (
-          <div className="space-y-8 pt-6">
-            {/* Carousel Promo Banner (Moved to top) */}
-            <div className="px-5">
-              <div className="relative h-60 rounded-[32px] overflow-hidden shadow-2xl shadow-black/5 cursor-pointer"
-                   onClick={() => {
-                     const cat = APP_CATEGORIES.find(c => c.name === promoBanners[currentBanner].categoryName);
-                     if (cat) handleCategoryClick(cat);
-                   }}>
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={currentBanner}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.8 }}
-                    className="absolute inset-0 bg-gray-900"
-                  >
-                    <motion.img 
-                      src={promoBanners[currentBanner].image} 
-                      alt="Promo" 
-                      initial={{ scale: 1.1 }}
-                      animate={{ scale: 1 }}
-                      transition={{ duration: 5 }}
-                      className="w-full h-full object-cover opacity-50" 
-                      referrerPolicy="no-referrer" 
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-8 flex flex-col justify-end">
-                      <div className="relative z-10">
-                        <h2 className="text-2xl font-bold text-white leading-tight mb-2 tracking-tight">
-                          {promoBanners[currentBanner].title}
-                        </h2>
-                        <p className="text-white/70 text-sm font-medium mb-6">
-                          {promoBanners[currentBanner].subtitle}
-                        </p>
-                        <button 
-                          className="px-8 py-3 bg-white text-gray-900 rounded-2xl font-bold text-xs tracking-widest shadow-xl hover:bg-gray-100 transition-colors"
-                        >
-                          {promoBanners[currentBanner].buttonText}
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-                
-                {/* Dots */}
-                {promoBanners.length > 1 && (
-                  <div className="absolute top-8 right-8 flex gap-1.5 z-20">
-                    {promoBanners.map((_, idx) => (
-                      <div 
-                        key={idx}
-                        className={`h-1 rounded-full transition-all duration-500 ${idx === currentBanner ? 'w-6 bg-white' : 'w-1.5 bg-white/30'}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Browse by Type & Grid */}
-            <div className="px-5">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Browse by Type</h3>
-              
-              {/* Filter Pills */}
-              <div className="flex gap-2 overflow-x-auto pb-4 hide-scrollbar -mx-5 px-5 mb-2">
-                {filterOptions.map(option => (
-                  <button
-                    key={option}
-                    onClick={() => setSelectedFilter(option)}
-                    className={`px-5 py-2.5 rounded-full whitespace-nowrap font-bold text-sm transition-all ${
-                      selectedFilter === option
-                        ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-
-              {/* 2-Column Service Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                {filteredCategories.map((cat, index) => (
-                  <motion.div
-                    key={cat.id}
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ delay: index * 0.05, type: "spring", stiffness: 100 }}
-                    whileHover={{ y: -4, scale: 1.02 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleCategoryClick(cat)}
-                    className="relative aspect-[4/5] rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  >
-                    <img 
-                      src={cat.imageUrl || `https://source.unsplash.com/featured/800x600?${cat.name.replace(/\s+/g, '')},repair,professional`} 
-                      alt={cat.name} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                      style={{ width: '100%', height: '100%' }}
-                      referrerPolicy="no-referrer" 
-                    />
-                    
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                    
-                    {/* Wishlist Button */}
-                    <button className="absolute top-4 right-4 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors z-10">
-                      <Heart size={16} strokeWidth={2.5} />
-                    </button>
-
-                    {/* Tag */}
-                    {cat.tag && (
-                      <div className="absolute top-4 left-4 bg-white px-3 py-1 rounded-full text-[10px] font-black text-red-600 uppercase tracking-wider shadow-sm">
-                        {cat.tag}
-                      </div>
-                    )}
-
-                    {/* Content */}
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h4 className="text-white font-bold text-lg leading-tight mb-1">{cat.name}</h4>
-                      <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">
-                        Starts at ₹{cat.priceStart}
-                      </p>
-                    </div>
-
-                    {/* Action Button */}
-                    <div className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
-                      <ChevronRight size={16} strokeWidth={3} />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* Offers & Discounts Sliding Banner */}
-            <div className="mt-12 px-5">
-              <div className="flex justify-between items-end mb-6">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 tracking-tight">Exclusive Offers</h3>
-                  <p className="text-sm text-gray-500 font-medium">Handpicked deals for you</p>
-                </div>
-                <button className="text-red-600 text-xs font-bold tracking-widest hover:underline">VIEW ALL</button>
-              </div>
-              
-              <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar -mx-5 px-5 snap-x snap-mandatory">
-                {/* Offer 1 */}
-                <motion.div 
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    const cat = APP_CATEGORIES.find(c => c.id === '3');
-                    if (cat) handleCategoryClick(cat);
-                  }}
-                  className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
-                >
-                  <div className="h-40 relative">
-                    <img src="https://images.pexels.com/photos/6195129/pexels-photo-6195129.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Room Cleaning" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <div className="absolute top-4 left-4 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
-                      Save 5%
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
-                      Room cleaning starting at ₹399
-                    </h4>
-                    <p className="text-sm text-gray-500 font-medium mb-4">Professional deep cleaning service</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-emerald-600 tracking-widest">LIMITED TIME</span>
-                      <ChevronRight size={20} className="text-gray-400" />
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Offer 2 */}
-                <motion.div 
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    const cat = APP_CATEGORIES.find(c => c.id === '7');
-                    if (cat) handleCategoryClick(cat);
-                  }}
-                  className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
-                >
-                  <div className="h-40 relative">
-                    <img src="https://images.pexels.com/photos/2244746/pexels-photo-2244746.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Vehicle Repair" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <div className="absolute top-4 left-4 bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
-                      Best Value
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
-                      Vehicle repair & servicing
-                    </h4>
-                    <p className="text-sm text-gray-500 font-medium mb-4">Pay after 100% satisfaction</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-600 tracking-widest">TOP RATED</span>
-                      <ChevronRight size={20} className="text-gray-400" />
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Offer 3 */}
-                <motion.div 
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    const cat = APP_CATEGORIES.find(c => c.id === '9');
-                    if (cat) handleCategoryClick(cat);
-                  }}
-                  className="min-w-[280px] sm:min-w-[320px] bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col snap-center cursor-pointer hover:shadow-xl hover:shadow-slate-200/50 transition-all"
-                >
-                  <div className="h-40 relative">
-                    <img src="https://images.pexels.com/photos/746496/pexels-photo-746496.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Packers and Movers" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <div className="absolute top-4 left-4 bg-purple-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
-                      New Launch
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h4 className="text-lg font-bold text-gray-900 leading-tight mb-2">
-                      Packers and movers
-                    </h4>
-                    <p className="text-sm text-gray-500 font-medium mb-4">Hassle-free shifting experience</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-purple-600 tracking-widest">BOOK NOW</span>
-                      <ChevronRight size={20} className="text-gray-400" />
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-
-            {/* Trust Badges */}
-            <div className="bg-gray-50 py-10 px-5 grid grid-cols-3 gap-4 border-y border-gray-100 mt-8">
-              <div className="flex flex-col items-center text-center gap-3">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
-                  <ShieldCheck size={24} strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">OrGo Safe<br/>Guarantee</span>
-              </div>
-              <div className="flex flex-col items-center text-center gap-3">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
-                  <Star size={24} strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">4.8 Average<br/>Rating</span>
-              </div>
-              <div className="flex flex-col items-center text-center gap-3">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-red-600 shadow-sm border border-gray-100">
-                  <Clock size={24} strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold text-gray-900 uppercase tracking-widest leading-tight">On-Time<br/>Service</span>
-              </div>
-            </div>
-          </div>
+          renderTabContent()
         )}
       </motion.div>
     );
