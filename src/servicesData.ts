@@ -36,7 +36,7 @@ export const orgoServices: Category[] = [
     name: 'AC Repair',
     icon: 'wind',
     priceStart: 499,
-    imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800',
+    imageUrl: 'https://pixabay.com/images/download/alflucio-air-conditioner-6605973_1920.jpg',
     category: 'Appliances',
     color: 'cyan',
     tag: 'Trending',
@@ -48,7 +48,7 @@ export const orgoServices: Category[] = [
       id: `ac-sub-${index}`,
       title: sub,
       icon: 'wind',
-      imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800',
+      imageUrl: 'https://pixabay.com/images/download/alflucio-air-conditioner-6605973_1920.jpg',
       items: [
         {
           id: `ac-item-${index}`,
@@ -57,7 +57,7 @@ export const orgoServices: Category[] = [
           reviews: '2.5k',
           price: 499,
           descriptionPoints: ['Expert technician', '30-day warranty', 'Genuine spare parts'],
-          imageUrl: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800'
+          imageUrl: 'https://pixabay.com/images/download/alflucio-air-conditioner-6605973_1920.jpg'
         }
       ]
     }))
