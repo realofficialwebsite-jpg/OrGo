@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { AppView, UserProfile } from '../src/types';
 import { motion, AnimatePresence } from 'motion/react';
-import { WorkerRegistration } from './WorkerRegistration';
+import { WorkerOnboarding } from './WorkerOnboarding';
 import { APP_CATEGORIES } from '../src/constants';
 
 interface AccountProps {
@@ -466,16 +466,13 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
   };
 
   const renderWorkerRegistration = () => (
-    <WorkerRegistration 
-      user={user} 
-      profile={profile} 
+    <WorkerOnboarding 
       onComplete={() => {
         setActiveSubView(null);
         onUpdateProfile();
         fetchProfile();
       }}
-      onBack={() => setActiveSubView(null)}
-      navigate={navigate}
+      onCancel={() => setActiveSubView(null)}
     />
   );
 

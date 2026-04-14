@@ -629,7 +629,7 @@ const CATEGORIES_REMOVED = [
 
 import { CustomerApp } from '../components/CustomerApp';
 import { WorkerApp } from '../components/WorkerApp';
-import { WorkerRegistration } from '../components/WorkerRegistration';
+import { WorkerOnboarding } from '../components/WorkerOnboarding';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -746,12 +746,9 @@ const App: React.FC = () => {
   // The user requested a specific registration flow.
   if (profile?.role === 'professional' && (!profile.skills || profile.skills.length === 0)) {
     return (
-      <WorkerRegistration 
-        user={user} 
-        profile={profile} 
+      <WorkerOnboarding 
         onComplete={fetchProfile} 
-        onBack={() => signOut(auth)} 
-        navigate={() => {}} 
+        onCancel={() => signOut(auth)} 
       />
     );
   }

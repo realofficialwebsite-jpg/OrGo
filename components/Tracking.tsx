@@ -291,7 +291,7 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
               onClick={isWorker ? handleWhatsApp : onChat}
               className="flex-1 flex items-center justify-center gap-3 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-bold text-sm shadow-sm active:scale-[0.98] transition-all hover:bg-gray-50"
             >
-              <MessageSquare size={18} strokeWidth={2.5} className="text-emerald-600" /> {isWorker ? 'WhatsApp' : 'Chat'}
+              <MessageSquare size={18} strokeWidth={2.5} className={isWorker ? "text-emerald-600" : "text-primary"} /> {isWorker ? 'WhatsApp' : 'Chat'}
             </button>
           </div>
         )}
@@ -300,7 +300,7 @@ export const Tracking: React.FC<TrackingProps> = ({ order, userRole, onBack, onC
           {isWorker && isOngoing && (
             <button 
               onClick={onCompleteJob}
-              className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
               <CheckCircle size={20} /> Complete Job
             </button>

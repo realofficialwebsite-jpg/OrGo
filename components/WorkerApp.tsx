@@ -385,7 +385,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
               onClick={() => setSelectedCategory(cat)}
               className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border whitespace-nowrap ${
                 selectedCategory === cat 
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20' 
+                  ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-600/20' 
                   : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200'
               }`}
             >
@@ -412,7 +412,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">New Request</p>
+                  <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mb-1">New Request</p>
                   <h3 className="font-bold text-gray-900">{order?.cartItems?.[0]?.title}</h3>
                   <p className="text-xs text-gray-500">{order.address}</p>
                 </div>
@@ -424,7 +424,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
               <div className="flex gap-3">
                 <button 
                   onClick={() => setSelectedRequest(order)}
-                  className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="flex-1 py-3 bg-red-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
                   <ClipboardList size={16} strokeWidth={3} /> View Details
                 </button>
@@ -534,7 +534,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       <div className="flex items-center justify-between mb-2">
         <button 
           onClick={() => setActiveTab(WorkerTab.REQUESTS)}
-          className="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 transition-colors bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100"
+          className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100"
         >
           <ArrowLeft size={18} strokeWidth={3} />
           <span className="text-xs font-bold uppercase tracking-widest">Back to Home</span>
@@ -554,7 +554,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           {/* Map UI Enhancement */}
           <div className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-gray-100 h-[300px] w-full relative">
             <img 
-              src="https://picsum.photos/seed/map-dark/800/600?grayscale" 
+              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=874&auto=format&fit=crop" 
               alt="Map" 
               className="w-full h-full object-cover opacity-80" 
               referrerPolicy="no-referrer" 
@@ -572,7 +572,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                 }}
               >
                 <div className="relative group">
-                  <div className="w-10 h-10 bg-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-600/40 border-2 border-white transform -rotate-45">
+                  <div className="w-10 h-10 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/40 border-2 border-white transform -rotate-45">
                     <div className="transform rotate-45">
                       <Wrench size={16} className="text-white" />
                     </div>
@@ -605,7 +605,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
               >
                 <div className="flex justify-between items-start mb-6">
                   <div className="flex gap-4">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+                    <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-600">
                       <Activity size={24} />
                     </div>
                     <div>
@@ -617,26 +617,26 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">₹{order.grandTotal}</p>
-                    <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[8px] font-bold uppercase tracking-wider">In Progress</span>
+                    <span className="px-2 py-1 bg-red-50 text-red-600 rounded-lg text-[8px] font-bold uppercase tracking-wider">In Progress</span>
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button 
                     onClick={() => setActiveTrackingOrder(order)}
-                    className="flex-1 py-3.5 bg-gray-900 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    className="flex-1 py-2.5 bg-gray-900 text-white font-bold rounded-xl text-[10px] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
                   >
                     <Navigation size={16} /> Track
                   </button>
                   <button 
                     onClick={() => handleWhatsApp(order)}
-                    className="flex-1 py-3.5 bg-emerald-50 text-emerald-600 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    className="flex-1 py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-[10px] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
                   >
                     <MessageSquare size={16} /> WhatsApp
                   </button>
                   <button 
                     onClick={() => handleCompleteJob(order.id)}
-                    className="flex-1 py-3.5 bg-emerald-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                    className="flex-1 py-2.5 bg-red-600 text-white font-bold rounded-xl text-[10px] flex flex-col items-center justify-center gap-1 shadow-lg shadow-red-600/20 active:scale-95 transition-all"
                   >
                     <CheckCircle2 size={16} /> Complete
                   </button>
@@ -660,7 +660,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             placeholder="Search by service or customer..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm focus:bg-white focus:border-emerald-500 transition-all shadow-sm"
+            className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm focus:bg-white focus:border-red-500 transition-all shadow-sm"
           />
         </div>
 
@@ -671,7 +671,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
               onClick={() => setFilterStatus(status)}
               className={`px-6 py-2.5 rounded-2xl text-xs font-bold capitalize transition-all whitespace-nowrap border ${
                 filterStatus === status 
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-600/20' 
+                  ? 'bg-red-600 text-white border-red-600 shadow-lg shadow-red-600/20' 
                   : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'
               }`}
             >
@@ -721,7 +721,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           filteredHistory.map(order => (
             <div key={order.id} className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all">
               <div className="flex items-center gap-5">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${order.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${order.status === 'completed' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
                   {order.status === 'completed' ? <CheckCircle2 size={24} strokeWidth={2.5} /> : <XCircle size={24} strokeWidth={2.5} />}
                 </div>
                 <div>
@@ -736,7 +736,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
               <div className="text-right">
                 <p className="font-bold text-gray-900 text-lg mb-1">₹{order.grandTotal}</p>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider ${order.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider ${order.status === 'completed' ? 'bg-red-50 text-red-600' : 'bg-red-50 text-red-600'}`}>
                     {order.status}
                   </span>
                   {order.isRated && (
@@ -805,10 +805,10 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           {isEditingProfile ? (
             <div className="w-full space-y-4 pt-4">
               <div className="relative inline-block mb-4">
-                <div className="w-28 h-28 rounded-[32px] bg-emerald-50 border-4 border-white shadow-xl overflow-hidden">
+                <div className="w-28 h-28 rounded-[32px] bg-red-50 border-4 border-white shadow-xl overflow-hidden">
                   <img src={editProfileData.photo || 'https://picsum.photos/seed/worker/200'} alt="Profile" className="w-full h-full object-cover" />
                 </div>
-                <button className="absolute -bottom-2 -right-2 p-2 bg-white rounded-xl shadow-lg border border-gray-100 text-emerald-600">
+                <button className="absolute -bottom-2 -right-2 p-2 bg-white rounded-xl shadow-lg border border-gray-100 text-red-600">
                   <Edit2 size={16} />
                 </button>
               </div>
@@ -847,7 +847,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                       console.error("Error updating profile:", error);
                     }
                   }}
-                  className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold text-xs"
+                  className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold text-xs"
                 >
                   Save
                 </button>
@@ -856,20 +856,20 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           ) : (
             <>
               <div className="relative mb-6">
-                <div className="w-28 h-28 rounded-[32px] bg-emerald-50 border-4 border-white shadow-xl overflow-hidden">
+                <div className="w-28 h-28 rounded-[32px] bg-red-50 border-4 border-white shadow-xl overflow-hidden">
                   <img src={profile.photo || 'https://picsum.photos/seed/worker/200'} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
-                <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white shadow-lg ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white shadow-lg ${isOnline ? 'bg-red-500' : 'bg-gray-400'}`} />
                 <button 
                   onClick={() => setIsEditingProfile(true)}
-                  className="absolute -top-2 -left-2 p-2 bg-white rounded-xl shadow-lg border border-gray-100 text-emerald-600"
+                  className="absolute -top-2 -left-2 p-2 bg-white rounded-xl shadow-lg border border-gray-100 text-red-600"
                 >
                   <Edit2 size={16} />
                 </button>
               </div>
               <h2 className="text-2xl font-bold text-gray-900 font-display mb-1">{profile.name}</h2>
               <p className="text-sm text-gray-500 mb-1">{profile.email}</p>
-              <p className="text-sm text-emerald-600 font-bold uppercase tracking-widest mb-6">{profile.category}</p>
+              <p className="text-sm text-red-600 font-bold uppercase tracking-widest mb-6">{profile.category}</p>
             </>
           )}
           
@@ -893,7 +893,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isOnline ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-50 text-gray-400'}`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isOnline ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-400'}`}>
                 <Power size={24} strokeWidth={2.5} />
               </div>
               <div>
@@ -903,7 +903,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             </div>
             <button 
               onClick={toggleOnline}
-              className={`w-14 h-8 rounded-full relative transition-all duration-300 ${isOnline ? 'bg-emerald-500' : 'bg-gray-200'}`}
+              className={`w-14 h-8 rounded-full relative transition-all duration-300 ${isOnline ? 'bg-red-500' : 'bg-gray-200'}`}
             >
               <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${isOnline ? 'left-7' : 'left-1'}`} />
             </button>
@@ -914,7 +914,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
               <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Working Hours & Days</h4>
               <button 
                 onClick={() => setIsEditingAvailability(!isEditingAvailability)}
-                className="text-emerald-600 text-xs font-bold uppercase tracking-widest flex items-center gap-1"
+                className="text-red-600 text-xs font-bold uppercase tracking-widest flex items-center gap-1"
               >
                 {isEditingAvailability ? 'Cancel' : <><Edit2 size={14} /> Edit</>}
               </button>
@@ -929,7 +929,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                       type="time" 
                       value={workingHours.start}
                       onChange={(e) => setWorkingHours(prev => ({ ...prev, start: e.target.value }))}
-                      className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -938,7 +938,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                       type="time" 
                       value={workingHours.end}
                       onChange={(e) => setWorkingHours(prev => ({ ...prev, end: e.target.value }))}
-                      className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                      className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
                     />
                   </div>
                 </div>
@@ -954,7 +954,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                       }}
                       className={`px-3 py-2 rounded-xl text-[10px] font-bold transition-all border ${
                         availableDays.includes(day)
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                          ? 'bg-red-50 text-red-600 border-red-100'
                           : 'bg-white text-gray-400 border-gray-100'
                       }`}
                     >
@@ -993,7 +993,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                       key={day}
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-bold ${
                         availableDays.includes(day)
-                          ? 'bg-emerald-50 text-emerald-700'
+                          ? 'bg-red-50 text-red-700'
                           : 'bg-gray-50 text-gray-300'
                       }`}
                     >
@@ -1030,14 +1030,14 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             <h3 className="font-bold text-gray-900">My Services & Skills</h3>
             <button 
               onClick={() => setShowEditServices(true)}
-              className="text-emerald-600 text-xs font-bold uppercase tracking-widest flex items-center gap-1"
+              className="text-red-600 text-xs font-bold uppercase tracking-widest flex items-center gap-1"
             >
               <Edit2 size={14} /> Edit
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
             {profile.skills?.map(skill => (
-              <span key={skill} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold">
+              <span key={skill} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-full text-xs font-bold">
                 {skill}
               </span>
             ))}
@@ -1050,7 +1050,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-gray-900">My Reviews</h3>
-            <button onClick={() => setShowAllReviews(true)} className="text-emerald-600 text-xs font-bold uppercase tracking-widest">View All</button>
+            <button onClick={() => setShowAllReviews(true)} className="text-red-600 text-xs font-bold uppercase tracking-widest">View All</button>
           </div>
           {history.filter(h => h.isRated).length === 0 ? (
             <p className="text-sm text-gray-400">No reviews yet.</p>
@@ -1078,7 +1078,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         <div className="space-y-2">
           <button 
             onClick={onSwitchMode}
-            className="w-full p-5 bg-emerald-600 text-white rounded-3xl font-bold flex items-center justify-between shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+            className="w-full p-5 bg-red-600 text-white rounded-3xl font-bold flex items-center justify-between shadow-lg shadow-red-600/20 active:scale-95 transition-all"
           >
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -1134,26 +1134,26 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-emerald-950 p-6 pt-12 rounded-b-[40px] shadow-xl shadow-emerald-950/10"
+          className="bg-slate-950 p-6 pt-12 rounded-b-[40px] shadow-xl shadow-slate-950/10"
         >
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-900 border border-emerald-800 flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden">
                 <img src={profile.photo || 'https://picsum.photos/seed/worker/200'} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Welcome back</p>
+                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Welcome back</p>
                 <p className="text-white font-bold text-sm">{profile.name}</p>
               </div>
             </div>
             <div className="flex gap-3">
               <div className="bg-white/5 backdrop-blur-md rounded-2xl px-4 py-2 border border-white/10 text-center">
-                <p className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest">Today</p>
+                <p className="text-[8px] font-bold text-red-400 uppercase tracking-widest">Today</p>
                 <p className="text-sm font-bold text-white">₹{todayEarnings}</p>
               </div>
               <button 
                 onClick={toggleOnline}
-                className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-[10px] transition-all ${isOnline ? 'bg-emerald-500 text-emerald-950' : 'bg-red-500 text-white'}`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-bold text-[10px] transition-all ${isOnline ? 'bg-red-500 text-white' : 'bg-slate-800 text-gray-400'}`}
               >
                 <Power size={12} strokeWidth={3} />
                 {isOnline ? 'ONLINE' : 'OFFLINE'}
@@ -1173,7 +1173,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             {activeTab === WorkerTab.PROFILE && 'My Profile'}
           </h2>
           {activeTab === WorkerTab.REQUESTS && requests.length > 0 && (
-            <span className="bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+            <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
               {requests.length} New
             </span>
           )}
@@ -1206,12 +1206,12 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           <button 
             key={item.id}
             onClick={() => setActiveTab(item.id)} 
-            className={`flex flex-col items-center gap-1.5 py-1 flex-1 transition-all active:scale-90 relative ${activeTab === item.id ? 'text-emerald-600' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1.5 py-1 flex-1 transition-all active:scale-90 relative ${activeTab === item.id ? 'text-red-600' : 'text-gray-400'}`}
           >
             <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} />
             <span className={`text-[9px] font-bold uppercase tracking-[0.1em] ${activeTab === item.id ? 'opacity-100' : 'opacity-60'}`}>{item.label}</span>
             {item.count && item.count > 0 && (
-              <span className="absolute top-0 right-1/4 w-4 h-4 bg-emerald-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+              <span className="absolute top-0 right-1/4 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border-2 border-white">
                 {item.count}
               </span>
             )}
@@ -1252,22 +1252,22 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
 
                 <div className="space-y-6">
                   {/* Service Info */}
-                  <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100">
+                  <div className="bg-red-50 p-6 rounded-3xl border border-red-100">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Service Required</p>
+                        <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mb-1">Service Required</p>
                         <h3 className="text-xl font-bold text-gray-900">{selectedRequest.cartItems?.[0]?.title}</h3>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-emerald-700">₹{selectedRequest.grandTotal}</p>
-                        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Estimated Payout</p>
+                        <p className="text-2xl font-bold text-red-700">₹{selectedRequest.grandTotal}</p>
+                        <p className="text-[10px] text-red-600 font-bold uppercase tracking-widest">Estimated Payout</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 pt-4 border-t border-emerald-100/50">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                    <div className="flex items-center gap-4 pt-4 border-t border-red-100/50">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-red-700">
                         <Clock size={14} /> {selectedRequest.isInstant ? 'Instant' : 'Scheduled'}
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-red-700">
                         <Activity size={14} /> {selectedRequest.scheduledTime}
                       </div>
                     </div>
@@ -1279,7 +1279,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                     <div className="bg-gray-50 rounded-3xl border border-gray-100 overflow-hidden">
                       <div className="p-4 flex items-center justify-between border-b border-gray-100">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-emerald-600">
+                          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-red-600">
                             <UserIcon size={24} />
                           </div>
                           <div>
@@ -1288,14 +1288,14 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                         </div>
                         <a 
                           href={`tel:${selectedRequest.customerPhone || '1234567890'}`}
-                          className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                          className="p-3 bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all"
                         >
                           <Phone size={20} />
                         </a>
                       </div>
                       <div className="p-4 bg-white/50">
                         <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-emerald-600 shrink-0">
+                          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-red-600 shrink-0">
                             <MapPin size={20} />
                           </div>
                           <div>
@@ -1336,7 +1336,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   </button>
                   <button 
                     onClick={() => handleOrderAction(selectedRequest.id!, 'accept')}
-                    className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    className="flex-[2] py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                   >
                     <Check size={20} strokeWidth={3} /> Accept Job
                   </button>
@@ -1376,7 +1376,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   <div key={cat.id} className="space-y-4">
                     <div className="flex items-center justify-between px-1">
                       <h3 className="text-sm font-bold text-gray-900 font-display flex items-center gap-3">
-                        <div className="w-1.5 h-6 bg-emerald-600 rounded-full" />
+                        <div className="w-1.5 h-6 bg-red-600 rounded-full" />
                         {cat.name}
                       </h3>
                     </div>
@@ -1392,25 +1392,25 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                                   key={item.id} 
                                   className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer group ${
                                     isSelected 
-                                      ? 'border-emerald-600 bg-emerald-50/50 shadow-sm' 
+                                      ? 'border-red-600 bg-red-50/50 shadow-sm' 
                                       : 'border-gray-100 hover:border-gray-200 bg-white'
                                   }`}
                                 >
                                   <div className="flex items-center gap-4">
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                                      isSelected ? 'bg-emerald-600 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'
+                                      isSelected ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'
                                     }`}>
                                       <Wrench size={14} />
                                     </div>
                                     <div>
-                                      <p className={`text-sm font-bold transition-colors ${isSelected ? 'text-emerald-900' : 'text-gray-700'}`}>
+                                      <p className={`text-sm font-bold transition-colors ${isSelected ? 'text-slate-900' : 'text-gray-700'}`}>
                                         {item.title}
                                       </p>
                                       <p className="text-[10px] text-gray-400 font-medium">₹{item.price} • Professional</p>
                                     </div>
                                   </div>
                                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                    isSelected ? 'bg-emerald-600 border-emerald-600' : 'border-gray-200'
+                                    isSelected ? 'bg-red-600 border-red-600' : 'border-gray-200'
                                   }`}>
                                     {isSelected && <Check size={12} className="text-white" strokeWidth={4} />}
                                   </div>
@@ -1447,7 +1447,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                     setShowEditServices(false);
                     fetchProfile();
                   }}
-                  className="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                  className="w-full py-4 bg-red-600 text-white font-bold rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all"
                 >
                   Done
                 </button>
@@ -1469,12 +1469,12 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                 <ArrowLeft size={20} />
               </button>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-100 overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-red-50 border border-red-100 overflow-hidden">
                   <img src={activeChatJob.customerPhoto || "https://picsum.photos/seed/customer/200"} alt="Customer" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900">{activeChatJob.customerName || 'Customer'}</h3>
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Active Job Chat</p>
+                  <p className="text-[10px] text-red-600 font-bold uppercase tracking-widest">Active Job Chat</p>
                 </div>
               </div>
             </div>
@@ -1493,12 +1493,12 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   >
                     <div className={`max-w-[80%] p-4 rounded-2xl text-sm ${
                       msg.senderId === user.uid 
-                        ? 'bg-emerald-600 text-white rounded-tr-none shadow-md' 
+                        ? 'bg-red-600 text-white rounded-tr-none shadow-md' 
                         : 'bg-white text-gray-700 rounded-tl-none border border-gray-100 shadow-sm'
                     }`}>
                       <p className="leading-relaxed">{msg.text}</p>
                       <p className={`text-[9px] mt-1.5 font-bold uppercase tracking-widest ${
-                        msg.senderId === user.uid ? 'text-emerald-100' : 'text-gray-400'
+                        msg.senderId === user.uid ? 'text-red-100' : 'text-gray-400'
                       }`}>
                         {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                       </p>
@@ -1521,7 +1521,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                 <button 
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim()}
-                  className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                  className="w-10 h-10 bg-red-600 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-red-600/20"
                 >
                   <Send size={18} />
                 </button>

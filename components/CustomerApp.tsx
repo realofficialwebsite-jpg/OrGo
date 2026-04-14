@@ -339,14 +339,14 @@ const QuickAccessCard = ({
       whileTap={{ scale: 0.96 }}
       className={`relative flex flex-col items-center justify-center p-1 rounded-[22px] transition-all duration-500 w-full h-full ${
         isSelected 
-          ? 'bg-gradient-to-br from-red-600 to-red-700 shadow-[0_8px_20px_-4px_rgba(220,38,38,0.4)] z-10' 
+          ? 'bg-[#2a2c45] border border-red-500/50 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)] z-10' 
           : 'bg-[#1a1b2e] border border-white/5 hover:bg-[#22243a] hover:border-white/10'
       }`}
     >
       {isSelected && (
         <motion.div 
           layoutId="activeGlow"
-          className="absolute inset-0 rounded-[22px] ring-2 ring-red-500/30 ring-inset"
+          className="absolute inset-0 rounded-[22px] ring-1 ring-red-500/50 ring-inset bg-red-500/5"
           initial={false}
           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
         />
@@ -355,7 +355,7 @@ const QuickAccessCard = ({
         <Icon />
       </div>
       <span className={`text-[8px] font-bold text-center leading-tight relative z-10 px-0.5 ${
-        isSelected ? 'text-white' : 'text-gray-400'
+        isSelected ? 'text-red-400' : 'text-gray-400'
       }`}>
         {title}
       </span>

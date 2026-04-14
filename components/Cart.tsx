@@ -161,7 +161,7 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
               </button>
             </div>
             
-            <div className="flex gap-2">
+            <div className="relative">
               <input 
                 type="text" 
                 placeholder="Enter promo code"
@@ -170,13 +170,13 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
                   setPromoCode(e.target.value.toUpperCase());
                   setPromoError(null);
                 }}
-                className={`flex-1 bg-gray-50 border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-colors ${
+                className={`w-full bg-gray-50 border rounded-xl pl-4 pr-24 py-3 text-sm font-medium focus:outline-none transition-colors ${
                   promoError ? 'border-red-300 focus:border-red-500' : 'border-gray-100 focus:border-primary'
                 }`}
               />
               <button 
                 onClick={() => handleApplyPromo(promoCode)}
-                className="px-6 bg-gray-900 text-white rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                className="absolute right-1 top-1 bottom-1 px-5 bg-gray-900 text-white rounded-lg text-xs font-bold active:scale-95 transition-transform"
               >
                 APPLY
               </button>
