@@ -387,37 +387,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [activeChatJob, setActiveChatJob] = useState<Booking | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
-    { role: 'model', text: 'Hi! I\'m Orgo AI. How can I help you with your home services today?' }
-  ]);
-  const [aiInput, setAiInput] = useState('');
-  const [isAILoading, setIsAILoading] = useState(false);
-
-  const handleAISubmit = async () => {
-    if (!aiInput.trim() || isAILoading) return;
-
-    const userMsg = aiInput.trim();
-    setAiInput('');
-    setAiMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-    setIsAILoading(true);
-
-    try {
-      const { getGeminiResponse } = await import('../src/services/geminiService');
-      const history = aiMessages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.text }]
-      }));
-      
-      const response = await getGeminiResponse(userMsg, history);
-      setAiMessages(prev => [...prev, { role: 'model', text: response }]);
-    } catch (error) {
-      console.error("AI Error:", error);
-      setAiMessages(prev => [...prev, { role: 'model', text: "Sorry, I encountered an error. Please try again." }]);
-    } finally {
-      setIsAILoading(false);
-    }
-  };
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
@@ -1017,16 +986,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         ) : (
           renderTabContent()
         )}
-
-        {/* Floating AI Button */}
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setShowAIAssistant(true)}
-          className="fixed bottom-24 right-6 w-14 h-14 bg-red-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/30 z-40 border-2 border-white"
-        >
-          <Sparkles size={24} />
-        </motion.button>
       </motion.div>
     );
   };
@@ -1490,17 +1449,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </button>
         </div>
       </div>
-      
-      {/* Floating AI Button for Orders View */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setShowAIAssistant(true)}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-red-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/30 z-40 border-2 border-white"
-      >
-        <Sparkles size={24} />
-      </motion.button>
-
       <div className="p-5 space-y-5">
         {orders.length === 0 && !loadingOrders ? (
           <div className="text-center py-24">
@@ -1710,83 +1658,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     </motion.div>
   );
 
-  const renderAIAssistant = () => (
-    <AnimatePresence>
-      {showAIAssistant && (
-        <motion.div
-          initial={{ opacity: 0, y: '100%' }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: '100%' }}
-          className="fixed inset-0 z-[110] bg-white flex flex-col"
-        >
-          <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/20">
-                <Sparkles size={20} />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900">Orgo AI</h3>
-                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Online • Intelligent Assistant</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => setShowAIAssistant(false)}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-gray-50/50">
-            {aiMessages.map((msg, idx) => (
-              <div 
-                key={idx} 
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${
-                  msg.role === 'user' 
-                    ? 'bg-red-600 text-white rounded-tr-none shadow-md' 
-                    : 'bg-white text-gray-700 rounded-tl-none border border-gray-100 shadow-sm'
-                }`}>
-                  <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                </div>
-              </div>
-            ))}
-            {isAILoading && (
-              <div className="flex justify-start">
-                <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex gap-1">
-                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                  <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="p-6 bg-white border-t border-gray-100 pb-10">
-            <div className="flex gap-3 items-center bg-gray-50 p-2 rounded-2xl border border-gray-100">
-              <input 
-                type="text" 
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAISubmit()}
-                placeholder="Ask me anything about our services..."
-                className="flex-1 bg-transparent border-none focus:ring-0 text-sm p-2 font-medium"
-              />
-              <button 
-                onClick={handleAISubmit}
-                disabled={!aiInput.trim() || isAILoading}
-                className="w-10 h-10 bg-red-600 text-white rounded-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-50 shadow-lg shadow-red-600/20"
-              >
-                <Send size={18} />
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
   return (
     <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
       <div className="bg-white min-h-screen">
@@ -1830,7 +1701,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           )}
         </AnimatePresence>
       </div>
-      {renderAIAssistant()}
 
       {/* Sticky Cart Bar */}
       <AnimatePresence>
