@@ -44,6 +44,10 @@ interface PendingWorker {
 }
 
 export const AdminDashboard: React.FC = () => {
+  useEffect(() => {
+    console.log('AdminDashboard: Mounted');
+  }, []);
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pin, setPin] = useState('');
   const [pendingWorkers, setPendingWorkers] = useState<PendingWorker[]>([]);

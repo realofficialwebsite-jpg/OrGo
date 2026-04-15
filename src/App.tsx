@@ -13,7 +13,7 @@ import { Category, SubCategory, ServiceItem, CartItem, AppView, Booking, UserPro
 import { APP_CATEGORIES } from './constants';
 import { useCart } from './CartContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { 
   Home, 
@@ -740,7 +740,16 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-red-600 font-bold">Loading OrGo...</div>;
+  const location = useLocation();
+  useEffect(() => {
+    console.log('App: Current Path:', location.pathname);
+    console.log('App: Loading State:', loading);
+    console.log('App: User State:', user?.uid);
+  }, [location, loading, user]);
+
+  if (loading && !location.pathname.startsWith('/admin')) {
+    return <div className="h-screen flex items-center justify-center text-red-600 font-bold">Loading OrGo...</div>;
+  }
 
   const WorkerDashboard = () => {
     if (!user) return <Auth onLoginSuccess={() => {}} />;
@@ -783,19 +792,19 @@ const App: React.FC = () => {
   };
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* 1. The Admin Route must be prioritized */}
-        <Route path="/admin" element={<AdminDashboard />} />
+    <Routes>
+      {/* 1. The Admin Route must be prioritized */}
+      <Route path="/admin/*" element={<AdminDashboard />} />
 
-        {/* 2. Worker specific routes */}
-        <Route path="/worker/*" element={<WorkerDashboard />} />
+      {/* 2. Worker specific routes */}
+      <Route path="/worker/*" element={<WorkerDashboard />} />
 
-        {/* 3. The Catch-all / Home page must be at the BOTTOM */}
-        <Route path="/" element={<UserApp />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
+      {/* 3. The Home page */}
+      <Route path="/" element={<UserApp />} />
+
+      {/* 4. Catch-all redirect to home - ONLY if not matching above */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 
