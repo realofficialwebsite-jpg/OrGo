@@ -13,6 +13,8 @@ import { Category, SubCategory, ServiceItem, CartItem, AppView, Booking, UserPro
 import { APP_CATEGORIES } from './constants';
 import { useCart } from './CartContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AdminDashboard } from '../components/AdminDashboard';
 import { 
   Home, 
   ClipboardList, 
@@ -754,35 +756,42 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
-      <NotificationHandler />
-      <AnimatePresence mode="wait">
-        {activeMode === 'worker' && profile?.role === 'professional' ? (
-          <WorkerApp 
-            key="worker-app"
-            user={user} 
-            profile={profile} 
-            onSwitchMode={() => setActiveMode('customer')} 
-            onLogout={() => signOut(auth)}
-            fetchProfile={fetchProfile}
-          />
-        ) : (
-          <CustomerApp 
-            key="customer-app"
-            user={user}
-            profile={profile}
-            onLogout={() => signOut(auth)}
-            fetchProfile={fetchProfile}
-            orders={orders}
-            loadingOrders={loadingOrders}
-            fetchOrders={fetchOrders}
-            handleCancelOrder={handleCancelOrder}
-            cancelling={cancelling}
-            setActiveMode={setActiveMode}
-          />
-        )}
-      </AnimatePresence>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="*" element={
+          <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
+            <NotificationHandler />
+            <AnimatePresence mode="wait">
+              {activeMode === 'worker' && profile?.role === 'professional' ? (
+                <WorkerApp 
+                  key="worker-app"
+                  user={user} 
+                  profile={profile} 
+                  onSwitchMode={() => setActiveMode('customer')} 
+                  onLogout={() => signOut(auth)}
+                  fetchProfile={fetchProfile}
+                />
+              ) : (
+                <CustomerApp 
+                  key="customer-app"
+                  user={user}
+                  profile={profile}
+                  onLogout={() => signOut(auth)}
+                  fetchProfile={fetchProfile}
+                  orders={orders}
+                  loadingOrders={loadingOrders}
+                  fetchOrders={fetchOrders}
+                  handleCancelOrder={handleCancelOrder}
+                  cancelling={cancelling}
+                  setActiveMode={setActiveMode}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+        } />
+      </Routes>
+    </BrowserRouter>
   );
 };
 
