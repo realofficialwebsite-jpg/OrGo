@@ -22,9 +22,9 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'failure'>('idle');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'success' | 'failure'>('idle');
 
   const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
 
@@ -55,9 +55,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
 
   const startVideo = async () => {
     try {
-      // Clear previous errors
       setErrorMessage('');
-      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
@@ -65,94 +63,78 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
           height: { ideal: 480 }
         } 
       });
-      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        setErrorMessage('');
       }
     } catch (err: any) {
       console.error('Error accessing camera:', err);
-      
-      const errorName = err.name || '';
-      const errorMessage = err.message || '';
-      
-      if (
-        errorName === 'NotAllowedError' || 
-        errorName === 'PermissionDeniedError' || 
-        errorMessage.toLowerCase().includes('denied') ||
-        errorMessage.toLowerCase().includes('permission')
-      ) {
-        setErrorMessage('Camera access is blocked. Please click the lock icon in your browser address bar, set Camera to "Allow", and then click Retry.');
-      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
-        setErrorMessage('No camera found on this device. Please connect a camera to continue.');
-      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
-        setErrorMessage('Camera is already in use by another application. Please close other apps and try again.');
-      } else {
-        setErrorMessage(`Camera Error: ${errorMessage || 'Unknown error occurred'}`);
-      }
+      setErrorMessage('Camera access denied or unavailable.');
     }
   };
 
-  const handleVerify = async () => {
-    if (!videoRef.current || !isModelLoaded || isVerifying) return;
+  const handleCaptureAndVerify = async () => {
+    if (!videoRef.current || !isModelLoaded || isProcessing) return;
 
-    setIsVerifying(true);
-    setVerificationStatus('verifying');
+    setIsProcessing(true);
     setErrorMessage('');
+    setVerificationStatus('idle');
 
     try {
-      // 0. Check if reference photo exists
-      if (!referencePhotoUrl) {
-        throw new Error('Secure face scan missing from database. Please contact Admin.');
-      }
+      // 1. Create a canvas and draw the current video frame
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error("Could not create canvas context");
+      
+      // Flip horizontally to match mirror effect
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      
+      // 2. Get the captured image as Base64
+      const capturedBase64 = canvas.toDataURL('image/jpeg');
 
-      // 1. Get reference image descriptor
-      const referenceImg = document.getElementById('reference-image') as HTMLImageElement;
+      // 3. Compare the captured image against the database reference
+      if (!referencePhotoUrl) throw new Error("Reference scan missing from database.");
+
+      // Load reference and captured images
+      const referenceImg = await faceapi.fetchImage(referencePhotoUrl);
+      const capturedImg = await faceapi.fetchImage(capturedBase64);
+
+      // Detect faces
       const referenceDetection = await faceapi.detectSingleFace(referenceImg, new faceapi.TinyFaceDetectorOptions())
         .withFaceLandmarks()
         .withFaceDescriptor();
-
-      if (!referenceDetection) {
-        throw new Error('Secure face scan missing from database. Please contact Admin.');
-      }
-
-      // 2. Get live face descriptor
-      const liveDetection = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+      const liveDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.TinyFaceDetectorOptions())
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-      if (!liveDetection) {
-        throw new Error('No face detected in camera. Please look directly at the camera.');
+      if (!referenceDetection || !liveDetection) {
+        throw new Error("Could not detect face. Please ensure your face is clearly visible.");
       }
 
-      // 3. Compare descriptors
+      // Compare descriptors
       const distance = faceapi.euclideanDistance(referenceDetection.descriptor, liveDetection.descriptor);
-      console.log('Face Distance:', distance);
-
+      
       if (distance < 0.6) {
         setVerificationStatus('success');
-        
-        // Update Firebase
         await updateDoc(doc(db, 'users', workerId), {
           status: 'online',
           isOnline: true,
           lastFaceScanAt: serverTimestamp()
         });
-
         toast.success('Identity Verified! You are now online.');
-        setTimeout(() => {
-          onSuccess();
-        }, 1500);
+        setTimeout(onSuccess, 1500);
       } else {
-        setVerificationStatus('failure');
-        setErrorMessage('Verification Failed. Face Mismatch.');
+        throw new Error("Face does not match. Please try again.");
       }
-    } catch (error: any) {
-      console.error('Verification error:', error);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "Could not verify identity.");
       setVerificationStatus('failure');
-      setErrorMessage(error.message || 'An error occurred during verification.');
     } finally {
-      setIsVerifying(false);
+      setIsProcessing(false);
     }
   };
 
@@ -204,7 +186,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
       </div>
 
       {/* Scanning State */}
-      {isVerifying && (
+      {isProcessing && (
         <p className="text-gray-500 animate-pulse text-sm font-medium">Analyzing biometrics...</p>
       )}
 
@@ -215,16 +197,6 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
               <AlertCircle size={16} className="shrink-0" />
               <span>{errorMessage}</span>
             </div>
-            {(errorMessage.toLowerCase().includes('denied') || 
-              errorMessage.toLowerCase().includes('blocked') || 
-              errorMessage.toLowerCase().includes('allow')) && (
-              <button 
-                onClick={startVideo}
-                className="mt-1 text-[10px] font-bold uppercase tracking-widest text-red-700 underline underline-offset-2 hover:text-red-900 transition-colors"
-              >
-                Retry Camera Access
-              </button>
-            )}
           </div>
         )}
 
@@ -235,11 +207,11 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
           </div>
         ) : (
           <button
-            onClick={handleVerify}
-            disabled={!isModelLoaded || isVerifying}
+            onClick={handleCaptureAndVerify}
+            disabled={!isModelLoaded || isProcessing}
             className="bg-red-600 text-white font-bold text-lg w-[calc(100%-3rem)] mx-6 py-4 rounded-2xl shadow-lg shadow-red-200 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
           >
-            {isVerifying ? (
+            {isProcessing ? (
               <>
                 <Loader2 size={20} className="animate-spin" />
                 Processing...
@@ -247,7 +219,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
             ) : (
               <>
                 <Camera size={20} />
-                Verify & Go Online
+                Capture & Verify
               </>
             )}
           </button>
