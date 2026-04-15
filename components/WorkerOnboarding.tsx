@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Camera, CheckCircle } from 'lucide-react';
+import { ChevronLeft, Camera, CheckCircle, Loader2 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../src/firebase';
 import { orgoServices } from '../src/servicesData';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -49,47 +51,47 @@ const INITIAL_STATE: OnboardingState = {
 const LANGUAGES = ['Hindi', 'English', 'Punjabi', 'Marathi', 'Gujarati', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Bengali'];
 
 export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () => void }> = ({ onComplete, onCancel }) => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<OnboardingState>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [appStatus, setAppStatus] = useState<string | null>(localStorage.getItem('worker_application_status'));
+  const [isChecking, setIsChecking] = useState(true);
 
   // Instant Teleport Logic
   useEffect(() => {
-    const checkUserStatus = async () => {
-      if (!auth.currentUser) return;
-      const uid = auth.currentUser.uid;
-
-      // Check 1: Already Approved?
-      const workerDoc = await getDoc(doc(db, 'workers', uid));
-      if (workerDoc.exists() && workerDoc.data().status === 'approved') {
-        localStorage.removeItem('worker_application_status');
-        onComplete(); // INSTANT REDIRECT - NO UI
+    setIsChecking(true); // Lock the screen on load
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setIsChecking(false);
         return;
       }
+      const uid = user.uid;
 
-      // Check 2: Pending?
-      const pendingDoc = await getDoc(doc(db, 'pendingWorkers', uid));
-      if (pendingDoc.exists()) {
-        setAppStatus('pending'); // Show Review In Progress UI
-        
-        // Listen for the exact moment of approval
-        const unsubscribe = onSnapshot(doc(db, 'workers', uid), (snapshot) => {
-          if (snapshot.exists() && snapshot.data().status === 'approved') {
-            localStorage.removeItem('worker_application_status');
-            onComplete(); // INSTANT REDIRECT - NO UI
+      // 1. Listen to MAIN user profile for approval
+      const unsubscribeSnapshot = onSnapshot(doc(db, 'users', uid), async (docSnap) => {
+        if (docSnap.exists() && docSnap.data().role === 'professional' && docSnap.data().status === 'approved') {
+          // INSTANT TELEPORT!
+          onComplete(); // Fire parent prop just in case
+          navigate('/worker-dashboard'); // Force the URL change
+          return; 
+        } else {
+          // 2. If not approved, check if they are pending
+          const pendingDoc = await getDoc(doc(db, 'pendingWorkers', uid));
+          if (pendingDoc.exists()) {
+            setAppStatus('pending');
           }
-        });
-        return () => unsubscribe();
-      } else {
-        // If not pending and not approved, it might be a fresh start or rejected
-        setAppStatus(null);
-      }
-    };
-    
-    checkUserStatus();
-  }, [auth.currentUser, onComplete]);
+          // Unlock the screen only after all checks are done
+          setIsChecking(false); 
+        }
+      });
+
+      return () => unsubscribeSnapshot();
+    });
+
+    return () => unsubscribeAuth();
+  }, [onComplete, navigate]);
 
   // Service Selection State
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
@@ -479,6 +481,15 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
     setSelectedSubCategory(null);
     setShowCancelConfirm(false);
   };
+
+  if (isChecking) {
+    return (
+      <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-12 h-12 text-gray-900 animate-spin mb-4" />
+        <h2 className="text-xl font-bold text-gray-900">Verifying secure profile...</h2>
+      </div>
+    );
+  }
 
   if (appStatus === 'pending') {
     return (
