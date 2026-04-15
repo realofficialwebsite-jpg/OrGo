@@ -152,4 +152,5 @@ export interface UserProfile {
   paymentStatus?: 'pending' | 'under_review' | 'paid';
   lastFaceScanAt?: any;
   faceScanBase64?: string;
+  profilePhotoBase64?: string;
 }

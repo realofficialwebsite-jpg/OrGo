@@ -1182,7 +1182,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         {showFaceVerification && (
           <FaceVerificationModal
             workerId={user.uid}
-            referencePhotoUrl={profile.faceScanBase64 || ''}
+            referencePhotoUrl={profile.faceScanBase64 || profile.profilePhotoBase64 || profile.photo || ''}
             onSuccess={() => {
               setShowFaceVerification(false);
               setIsOnline(true);
