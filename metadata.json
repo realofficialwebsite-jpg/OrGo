@@ -3,6 +3,7 @@
   "description": "A mobile-first on-demand home services application for Jaipur, featuring a 3-tier service selection flow, cart system, authentication, booking wizards, live tracking, and order management.",
   "requestFramePermissions": [
     "geolocation",
-    "camera"
+    "camera",
+    "microphone"
   ]
 }

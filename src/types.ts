@@ -64,11 +64,15 @@ export interface Booking {
   isInstant: boolean;
   instructions: string;
   imageUrl?: string;
-  status: 'searching' | 'assigned' | 'on_the_way' | 'completed' | 'cancelled';
+  status: 'searching' | 'assigned' | 'on_the_way' | 'in_progress' | 'billing' | 'payment_pending' | 'completed' | 'cancelled';
   interestedWorkers: InterestedWorker[];
   assignedWorkerId?: string;
   workerName?: string;
   workerPhoto?: string;
+  startOtp?: string;
+  endOtp?: string;
+  billingItems?: { name: string; price: number }[];
+  startedAt?: any;
   createdAt: any;
   rating?: number;
   reviewText?: string;
@@ -76,12 +80,17 @@ export interface Booking {
   customerPhone?: string;
   customerName?: string;
   customerPhoto?: string;
+  userPhotoUrl?: string;
   workerPhone?: string;
   customerLocation?: { lat: number; lng: number };
   workerLocation?: { lat: number; lng: number };
   cancelReason?: string;
   cancelledAt?: any;
   completedAt?: any;
+  acceptedAt?: any;
+  basePrice?: number;
+  platformFee?: number;
+  otp?: string;
   review?: string;
 }
 
@@ -137,4 +146,9 @@ export interface UserProfile {
   category?: string;
   workingHours?: { start: string; end: string };
   availableDays?: string[];
+  totalRatingPoints?: number;
+  ratingCount?: number;
+  platformDues?: number;
+  paymentStatus?: 'pending' | 'under_review' | 'paid';
+  lastFaceScanAt?: any;
 }

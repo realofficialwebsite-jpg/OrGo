@@ -50,7 +50,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   // Safe stringify to handle potential circular references
   const safeStringify = (obj: any) => {
     try {
-      const cache = new Set();
+      const cache = new WeakSet();
       return JSON.stringify(obj, (key, value) => {
         if (typeof value === "object" && value !== null) {
           if (cache.has(value)) {
@@ -61,7 +61,21 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
         return value;
       });
     } catch (e) {
-      return "[Serialization Error]";
+      try {
+        // Fallback for objects that can't be handled by WeakSet (e.g. non-extensible)
+        const cache = new Set();
+        return JSON.stringify(obj, (key, value) => {
+          if (typeof value === "object" && value !== null) {
+            if (cache.has(value)) {
+              return "[Circular]";
+            }
+            cache.add(value);
+          }
+          return value;
+        });
+      } catch (e2) {
+        return "[Serialization Error]";
+      }
     }
   };
 

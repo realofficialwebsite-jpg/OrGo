@@ -33,10 +33,10 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
 
-  const platformFee = 49;
-  const taxes = Math.round(cartTotal * 0.18);
+  const platformFee = 5;
+  const visitingCharge = 49;
   const discount = appliedPromo ? appliedPromo.discount : 0;
-  const grandTotal = cartTotal + platformFee + taxes - discount;
+  const grandTotal = cartTotal + platformFee - discount;
 
   const handleApplyPromo = (code: string) => {
     setPromoError(null);
@@ -244,8 +244,16 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
                 <span className="text-gray-900 font-bold">₹{platformFee}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500 font-medium">Taxes (18%)</span>
-                <span className="text-gray-900 font-bold">₹{taxes}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-400 font-medium italic">Visiting Charge</span>
+                  <button 
+                    onClick={() => alert('A ₹49 visiting charge applies ONLY if you do not proceed with the repair after inspection. If the service is completed, this fee is 100% waived off.')}
+                    className="text-gray-300 hover:text-primary transition-colors"
+                  >
+                    <Info size={14} />
+                  </button>
+                </div>
+                <span className="text-gray-400 font-bold italic">₹{visitingCharge}</span>
               </div>
               {appliedPromo && (
                 <div className="flex justify-between text-sm text-emerald-600">
@@ -254,8 +262,8 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
                 </div>
               )}
               <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
-                <span className="text-base font-bold text-gray-900">Grand Total</span>
-                <span className="text-xl font-bold text-primary">₹{grandTotal}</span>
+                <span className="text-base font-bold text-slate-950">Grand Total</span>
+                <span className="text-xl font-bold text-red-600">₹{grandTotal}</span>
               </div>
             </div>
           </div>
@@ -266,7 +274,7 @@ export const Cart: React.FC<CartProps> = ({ onClose, setView }) => {
       <div className="p-5 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
         <button 
           onClick={() => setView(AppView.CHECKOUT)}
-          className="w-full bg-primary text-white py-4 rounded-2xl font-bold flex items-center justify-between px-6 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+          className="w-full bg-slate-950 text-white py-4 rounded-2xl font-bold flex items-center justify-between px-6 shadow-lg shadow-slate-950/20 active:scale-[0.98] transition-all"
         >
           <div className="flex flex-col items-start">
             <span className="text-[10px] opacity-80 uppercase tracking-widest">Proceed to Checkout</span>

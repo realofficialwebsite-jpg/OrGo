@@ -1569,7 +1569,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         order={trackableOrder}
         userRole="customer"
         onBack={() => setView(AppView.ORDERS)} 
-        onChat={() => setActiveChatJob(trackableOrder)}
       />
     );
   };

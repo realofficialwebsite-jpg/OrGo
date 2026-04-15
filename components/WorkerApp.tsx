@@ -30,12 +30,15 @@ import {
   Calendar as CalendarIcon,
   MessageSquare,
   Send,
-  Plus
+  Plus,
+  Wallet
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { Tracking } from './Tracking';
+import { WorkerWalletDashboard } from './WorkerWalletDashboard';
+import { FaceVerificationModal } from './FaceVerificationModal';
 
 interface WorkerAppProps {
   user: User;
@@ -48,6 +51,7 @@ interface WorkerAppProps {
 enum WorkerTab {
   REQUESTS = 'REQUESTS',
   MAP = 'MAP',
+  WALLET = 'WALLET',
   HISTORY = 'HISTORY',
   PROFILE = 'PROFILE'
 }
@@ -74,6 +78,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingAvailability, setIsEditingAvailability] = useState(false);
   const [editProfileData, setEditProfileData] = useState({ name: profile.name, email: profile.email, photo: profile.photo || '' });
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
 
   useEffect(() => {
     if (requests.length > 0 && activeTab !== WorkerTab.REQUESTS) {
@@ -283,13 +288,39 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   }, [user, profile.skills]);
 
   const toggleOnline = async () => {
-    const newStatus = !isOnline;
-    setIsOnline(newStatus);
-    try {
-      await updateDoc(doc(db, 'users', user.uid), { isOnline: newStatus });
-    } catch (error) {
-      console.error('Error updating status:', error);
-      setIsOnline(!newStatus);
+    if (!isOnline) {
+      // Gatekeeper logic: Check if verified today
+      const lastScan = profile.lastFaceScanAt;
+      const isVerifiedToday = lastScan && 
+        (lastScan.toDate ? lastScan.toDate().toDateString() : new Date(lastScan).toDateString()) === new Date().toDateString();
+
+      if (isVerifiedToday) {
+        setIsOnline(true);
+        try {
+          await updateDoc(doc(db, 'users', user.uid), { 
+            isOnline: true, 
+            status: 'online' 
+          });
+          toast.success('Welcome back!');
+        } catch (error) {
+          console.error('Error updating status:', error);
+          setIsOnline(false);
+        }
+      } else {
+        setShowFaceVerification(true);
+      }
+    } else {
+      // Go Offline
+      setIsOnline(false);
+      try {
+        await updateDoc(doc(db, 'users', user.uid), { 
+          isOnline: false, 
+          status: 'offline' 
+        });
+      } catch (error) {
+        console.error('Error updating status:', error);
+        setIsOnline(true);
+      }
     }
   };
 
@@ -309,6 +340,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
     try {
       const orderRef = doc(db, 'order', orderId);
       if (action === 'accept') {
+        const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
         const workerData = {
           workerId: user.uid,
           name: profile.name,
@@ -322,6 +354,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         // For this app's flow, we'll assign the worker immediately upon acceptance
         await updateDoc(orderRef, {
           status: 'assigned',
+          startOtp: generatedOtp,
           assignedWorkerId: user.uid,
           workerName: profile.name,
           workerPhoto: profile.photo || 'https://picsum.photos/seed/worker/200',
@@ -438,85 +471,6 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             </motion.div>
           ))
         )}
-
-        {/* Request Details Modal */}
-        <AnimatePresence>
-          {selectedRequest && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-              <motion.div 
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                className="bg-white w-full max-w-lg rounded-[40px] overflow-hidden shadow-2xl"
-              >
-                <div className="p-8">
-                  <div className="flex justify-between items-start mb-8">
-                    <div>
-                      <h2 className="text-2xl font-display font-bold text-gray-900">Order Details</h2>
-                      <p className="text-gray-500 font-medium mt-1">Review before accepting</p>
-                    </div>
-                    <button 
-                      onClick={() => setSelectedRequest(null)}
-                      className="p-2 bg-gray-100 rounded-full text-gray-500"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  <div className="space-y-6 mb-8">
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
-                        <UserIcon size={24} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Customer</p>
-                        <p className="font-bold text-gray-900">{selectedRequest.customerName || 'User'}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
-                        <MapPin size={24} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Service Address</p>
-                        <p className="font-bold text-gray-900 text-sm">{selectedRequest.address}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary">
-                        <Clock size={24} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Service Type</p>
-                        <p className="font-bold text-gray-900">{selectedRequest.cartItems[0].title}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={() => setSelectedRequest(null)}
-                      className="flex-1 py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all"
-                    >
-                      Close
-                    </button>
-                    <button 
-                      onClick={() => {
-                        handleOrderAction(selectedRequest.id!, 'accept');
-                        setSelectedRequest(null);
-                      }}
-                      className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
-                    >
-                      Accept Request
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
       </div>
     );
   };
@@ -1117,7 +1071,6 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         order={activeTrackingOrder} 
         userRole="professional" 
         onBack={() => setActiveTrackingOrder(null)}
-        onChat={() => setActiveChatJob(activeTrackingOrder)}
         onCompleteJob={() => {
           handleCompleteJob(activeTrackingOrder.id);
           setActiveTrackingOrder(null);
@@ -1169,6 +1122,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           <h2 className="text-xl font-bold text-gray-900 font-display">
             {activeTab === WorkerTab.REQUESTS && 'New Requests'}
             {activeTab === WorkerTab.MAP && 'Active Jobs Map'}
+            {activeTab === WorkerTab.WALLET && 'My Earnings'}
             {activeTab === WorkerTab.HISTORY && 'Job History'}
             {activeTab === WorkerTab.PROFILE && 'My Profile'}
           </h2>
@@ -1189,6 +1143,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           >
             {activeTab === WorkerTab.REQUESTS && renderRequests()}
             {activeTab === WorkerTab.MAP && renderActiveJobs()}
+            {activeTab === WorkerTab.WALLET && <WorkerWalletDashboard user={user} profile={profile} />}
             {activeTab === WorkerTab.HISTORY && renderHistory()}
             {activeTab === WorkerTab.PROFILE && renderProfile()}
           </motion.div>
@@ -1200,6 +1155,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         {[
           { id: WorkerTab.REQUESTS, icon: Bell, label: 'Requests', count: requests.length, notify: hasNewRequest },
           { id: WorkerTab.MAP, icon: MapPin, label: 'Map', count: activeJobs.length },
+          { id: WorkerTab.WALLET, icon: Wallet, label: 'Earnings' },
           { id: WorkerTab.HISTORY, icon: History, label: 'History' },
           { id: WorkerTab.PROFILE, icon: UserIcon, label: 'Profile' },
         ].map((item) => (
@@ -1223,14 +1179,28 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       </div>
       {/* Selected Request Modal */}
       <AnimatePresence>
+        {showFaceVerification && (
+          <FaceVerificationModal
+            workerId={user.uid}
+            referencePhotoUrl={profile.photo || 'https://picsum.photos/seed/worker/200'}
+            onSuccess={() => {
+              setShowFaceVerification(false);
+              setIsOnline(true);
+              fetchProfile();
+            }}
+            onClose={() => setShowFaceVerification(false)}
+          />
+        )}
         {selectedRequest && (
           <motion.div 
+            key="selected-request-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4 backdrop-blur-sm"
           >
             <motion.div 
+              key="selected-request-modal-content"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -1351,12 +1321,14 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       <AnimatePresence>
         {showEditServices && (
           <motion.div 
+            key="edit-services-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
           >
             <motion.div 
+              key="edit-services-modal-content"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -1459,6 +1431,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       <AnimatePresence>
         {activeChatJob && (
           <motion.div 
+            key="chat-modal"
             initial={{ opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}

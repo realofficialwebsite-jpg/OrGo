@@ -65,9 +65,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
   // Step 4: Payment
   const [paymentMethod, setPaymentMethod] = useState('COD');
 
-  const platformFee = 49;
-  const taxes = Math.round(cartTotal * 0.18);
-  const grandTotal = cartTotal + platformFee + taxes;
+  const platformFee = 5;
+  const grandTotal = cartTotal + platformFee;
 
   useEffect(() => {
     const fetchUserAddresses = async () => {
@@ -236,7 +235,10 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
         userId: auth.currentUser.uid,
         customerName,
         customerPhoto: auth.currentUser?.photoURL || '',
+        userPhotoUrl: auth.currentUser?.photoURL || '',
         cartItems: cart,
+        basePrice: cartTotal,
+        platformFee: 5,
         grandTotal,
         address: getSelectedAddressString(),
         addressId: selectedAddressId,
@@ -794,8 +796,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
                     </span>
                   </div>
                   <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
-                    <span className="text-base font-bold text-gray-900">Total Amount</span>
-                    <span className="text-xl font-bold text-primary">₹{grandTotal}</span>
+                    <span className="text-base font-bold text-slate-950">Total Amount</span>
+                    <span className="text-xl font-bold text-red-600">₹{grandTotal}</span>
                   </div>
                 </div>
               </div>
