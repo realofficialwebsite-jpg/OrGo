@@ -73,27 +73,30 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
   };
 
   const handleCaptureAndVerify = async () => {
-    if (!videoRef.current || !isModelLoaded || isProcessing) return;
+    if (!videoRef.current || videoRef.current.readyState !== 4) {
+      setErrorMessage("Camera still loading. Please wait.");
+      return;
+    }
 
     setIsProcessing(true);
     setErrorMessage('');
     setVerificationStatus('idle');
 
     try {
-      // 1. Create a canvas and draw the current video frame
+      // 1. Bulletproof Canvas Draw
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error("Could not create canvas context");
       
-      // Flip horizontally to match mirror effect
+      // Mirror the context if the video is mirrored via CSS
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       
-      // 2. Get the captured image as Base64
-      const capturedBase64 = canvas.toDataURL('image/jpeg');
+      // 2. Get the captured image as Base64 with slight compression
+      const capturedBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
       // 3. Compare the captured image against the database reference
       if (!referencePhotoUrl) throw new Error("Reference scan missing from database.");
@@ -120,7 +123,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
         .withFaceDescriptor();
 
       if (!liveDetection) {
-        throw new Error("Failed to detect face in the live camera capture. Please hold still and ensure good lighting.");
+        throw new Error("ALIGNMENT_FAIL");
       }
 
       // 3. Compare descriptors
@@ -140,7 +143,11 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(err.message || "Could not verify identity.");
+      if (err.message === "ALIGNMENT_FAIL") {
+        setErrorMessage("Fit your face inside the guide and find better lighting.");
+      } else {
+        setErrorMessage(err.message || "Could not verify identity.");
+      }
       setVerificationStatus('failure');
     } finally {
       setIsProcessing(false);
@@ -164,7 +171,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
       <div className="flex flex-col items-center">
         <h2 className="text-2xl font-black text-slate-900 mt-10 text-center">Daily Security Check</h2>
         <p className="text-sm text-gray-500 text-center mt-2 mx-6">
-          Please position your face clearly in the circle to go online.
+          Fit your face inside the guide
         </p>
       </div>
 
