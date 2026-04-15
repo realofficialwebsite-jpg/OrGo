@@ -545,7 +545,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         // Fallback to default location
         setCurrentLocation('Poornima University, Jaipur');
       },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
     );
   }, []);
 

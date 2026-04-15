@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Camera, CheckCircle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../src/firebase';
 import { orgoServices } from '../src/servicesData';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -54,30 +54,42 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [appStatus, setAppStatus] = useState<string | null>(localStorage.getItem('worker_application_status'));
-  const [isApproved, setIsApproved] = useState(false);
 
-  // Listen for approval status in real-time
+  // Instant Teleport Logic
   useEffect(() => {
-    if (appStatus !== 'pending' || !auth.currentUser) return;
+    const checkUserStatus = async () => {
+      if (!auth.currentUser) return;
+      const uid = auth.currentUser.uid;
 
-    // The worker app MUST listen to the 'workers' collection now
-    const unsubscribe = onSnapshot(doc(db, 'workers', auth.currentUser.uid), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.status === 'approved') {
-          // The admin has approved them!
-          localStorage.removeItem('worker_application_status');
-          setIsApproved(true);
-          // Small delay for the success animation
-          setTimeout(() => {
-            onComplete();
-          }, 1500);
-        }
+      // Check 1: Already Approved?
+      const workerDoc = await getDoc(doc(db, 'workers', uid));
+      if (workerDoc.exists() && workerDoc.data().status === 'approved') {
+        localStorage.removeItem('worker_application_status');
+        onComplete(); // INSTANT REDIRECT - NO UI
+        return;
       }
-    });
 
-    return () => unsubscribe();
-  }, [appStatus, auth.currentUser, onComplete]);
+      // Check 2: Pending?
+      const pendingDoc = await getDoc(doc(db, 'pendingWorkers', uid));
+      if (pendingDoc.exists()) {
+        setAppStatus('pending'); // Show Review In Progress UI
+        
+        // Listen for the exact moment of approval
+        const unsubscribe = onSnapshot(doc(db, 'workers', uid), (snapshot) => {
+          if (snapshot.exists() && snapshot.data().status === 'approved') {
+            localStorage.removeItem('worker_application_status');
+            onComplete(); // INSTANT REDIRECT - NO UI
+          }
+        });
+        return () => unsubscribe();
+      } else {
+        // If not pending and not approved, it might be a fresh start or rejected
+        setAppStatus(null);
+      }
+    };
+    
+    checkUserStatus();
+  }, [auth.currentUser, onComplete]);
 
   // Service Selection State
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
@@ -433,7 +445,7 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
     try {
       const user = auth.currentUser;
       
-      await addDoc(collection(db, 'pendingWorkers'), {
+      await setDoc(doc(db, 'pendingWorkers', user.uid), {
         ...formData,
         userId: user.uid,
         status: 'pending',
@@ -472,48 +484,34 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
     return (
       <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6">
         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-          {isApproved ? (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="bg-emerald-500 rounded-full p-4"
-            >
-              <CheckCircle className="w-10 h-10 text-white" />
-            </motion.div>
-          ) : (
-            <CheckCircle className="w-10 h-10 text-gray-900" />
-          )}
+          <CheckCircle className="w-10 h-10 text-gray-900" />
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          {isApproved ? 'Application Approved!' : 'Review in Progress'}
+          Review in Progress
         </h1>
         <p className="text-gray-500 text-center mb-8 max-w-sm">
-          {isApproved 
-            ? 'Welcome to the OrGo team! Redirecting you to your dashboard...' 
-            : 'Your application has been submitted and is currently under review by our team. We will notify you once approved.'}
+          Your application has been submitted and is currently under review by our team. We will notify you once approved.
         </p>
-        {!isApproved && (
-          <div className="w-full max-w-xs space-y-4">
-            <button 
-              onClick={onComplete}
-              className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors"
-            >
-              Return to Home
-            </button>
-            <a 
-              href="mailto:queries.girish@gmail.com"
-              className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center"
-            >
-              Contact Support
-            </a>
-            <button 
-              onClick={() => setShowCancelConfirm(true)}
-              className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors"
-            >
-              Cancel Application
-            </button>
-          </div>
-        )}
+        <div className="w-full max-w-xs space-y-4">
+          <button 
+            onClick={onComplete}
+            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors"
+          >
+            Return to Home
+          </button>
+          <a 
+            href="mailto:queries.girish@gmail.com"
+            className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center"
+          >
+            Contact Support
+          </a>
+          <button 
+            onClick={() => setShowCancelConfirm(true)}
+            className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors"
+          >
+            Cancel Application
+          </button>
+        </div>
 
         {/* Custom Confirmation Modal */}
         <AnimatePresence>

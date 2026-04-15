@@ -111,10 +111,13 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
         setLocating(false);
       }
     }, (err) => {
-      console.error(err);
-      // alert('Location access denied');
+      console.error('Geolocation error:', err);
+      let msg = 'Could not get your location.';
+      if (err.code === err.PERMISSION_DENIED) msg = 'Location access denied. Please enable it in settings.';
+      if (err.code === err.TIMEOUT) msg = 'Location request timed out. Please try again.';
+      alert(msg);
       setLocating(false);
-    });
+    }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 });
   };
 
   const validateAddress = () => {
@@ -219,7 +222,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
           navigator.geolocation.getCurrentPosition(
             (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
             (error) => reject(error),
-            { timeout: 5000 }
+            { timeout: 15000, enableHighAccuracy: false }
           );
         });
         customerLocation = pos;

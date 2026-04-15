@@ -98,6 +98,22 @@ service cloud.firestore {
                       (request.resource.data.role == resource.data.role || request.resource.data.role in ['client', 'customer', 'professional'] || isAdmin());
     }
 
+    match /pendingWorkers/{workerId} {
+      // Workers can read their own application, admins can read all
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      // Workers can create their application
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Admins can delete
+      allow delete: if isAdmin();
+    }
+
+    match /workers/{workerId} {
+      // Everyone authenticated can read (to see professional profiles)
+      allow read: if isAuthenticated();
+      // Only admins can manage the workers collection
+      allow create, update, delete: if isAdmin();
+    }
+
     match /order/{orderId} {
       // Users can read their own orders. Admins can read all.
       // Workers need to read orders that are 'searching' or assigned to them.
