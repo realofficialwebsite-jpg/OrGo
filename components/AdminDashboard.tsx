@@ -6,6 +6,7 @@ import {
   deleteDoc, 
   setDoc, 
   query, 
+  serverTimestamp,
   orderBy 
 } from 'firebase/firestore';
 import { db } from '../src/firebase';
@@ -34,10 +35,11 @@ interface PendingWorker {
   panNumber: string;
   servicesOffered: string[];
   profilePhotoBase64: string;
-  phone: string;
+  mobileNumber: string;
   email: string;
-  experience: string;
-  category: string;
+  yearsOfExperience: string;
+  permanentAddress: string;
+  faceScanBase64: string;
   createdAt: any;
 }
 
@@ -51,7 +53,7 @@ export const AdminDashboard: React.FC = () => {
     if (!isAuthenticated) return;
 
     // CRITICAL BUG FIX: Ensure collection name is 'pendingWorkers' exactly
-    const q = query(collection(db, 'pendingWorkers'), orderBy('submittedAt', 'desc'));
+    const q = query(collection(db, 'pendingWorkers'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       // CRITICAL BUG FIX: Proper data mapping
       const workers = snapshot.docs.map(doc => ({
@@ -82,18 +84,30 @@ export const AdminDashboard: React.FC = () => {
 
   const handleApprove = async (worker: PendingWorker) => {
     try {
-      // CRITICAL LOGIC: Write to 'workers' and delete from 'pendingWorkers'
-      await setDoc(doc(db, 'workers', worker.userId), {
-        ...worker,
-        status: 'approved',
+      const mappedUserData = {
+        name: worker.fullName || '',
+        phone: worker.mobileNumber || '',
+        email: worker.email || '',
+        photo: worker.profilePhotoBase64 || '',
+        skills: worker.servicesOffered || [],
+        role: "professional",
+        status: "approved",
         platformDues: 0,
-        role: 'professional',
         isOnline: false,
-        rating: 5.0,
-        totalReviews: 0,
-        approvedAt: new Date()
-      });
+        createdAt: serverTimestamp(),
+        age: worker.age || '',
+        experience: worker.yearsOfExperience || '',
+        // Keep the original KYC data for records just in case
+        aadhaarNumber: worker.aadhaarNumber || '',
+        panNumber: worker.panNumber || '',
+        permanentAddress: worker.permanentAddress || '',
+        faceScanBase64: worker.faceScanBase64 || ''
+      };
 
+      // 1. Save to the 'users' collection using the worker's Auth UID
+      await setDoc(doc(db, 'users', worker.userId), mappedUserData);
+
+      // 2. Delete from 'pendingWorkers'
       await deleteDoc(doc(db, 'pendingWorkers', worker.id));
       
       toast.success(`Worker ${worker.fullName} Approved!`);
@@ -213,9 +227,9 @@ export const AdminDashboard: React.FC = () => {
                     <div className="flex-1 pt-2">
                       <h3 className="text-xl font-black text-black leading-tight">{worker.fullName}</h3>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{worker.category}</span>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Professional</span>
                         <span className="w-1 h-1 bg-gray-200 rounded-full" />
-                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{worker.experience} Exp</span>
+                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{worker.yearsOfExperience} Exp</span>
                       </div>
                     </div>
                   </div>

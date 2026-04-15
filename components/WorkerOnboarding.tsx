@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Camera, CheckCircle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../src/firebase';
 import { orgoServices } from '../src/servicesData';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -54,6 +54,28 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [appStatus, setAppStatus] = useState<string | null>(localStorage.getItem('worker_application_status'));
+  const [isApproved, setIsApproved] = useState(false);
+
+  // Listen for approval status in real-time
+  useEffect(() => {
+    if (appStatus !== 'pending' || !auth.currentUser) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'users', auth.currentUser.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.status === 'approved' && data.role === 'professional') {
+          localStorage.removeItem('worker_application_status');
+          setIsApproved(true);
+          // Small delay for the success animation if we had one, but here we just complete
+          setTimeout(() => {
+            onComplete();
+          }, 1500);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [appStatus, auth.currentUser, onComplete]);
 
   // Service Selection State
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
@@ -448,32 +470,48 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
     return (
       <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6">
         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle className="w-10 h-10 text-gray-900" />
+          {isApproved ? (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="bg-emerald-500 rounded-full p-4"
+            >
+              <CheckCircle className="w-10 h-10 text-white" />
+            </motion.div>
+          ) : (
+            <CheckCircle className="w-10 h-10 text-gray-900" />
+          )}
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Review in Progress</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          {isApproved ? 'Application Approved!' : 'Review in Progress'}
+        </h1>
         <p className="text-gray-500 text-center mb-8 max-w-sm">
-          Your application has been submitted and is currently under review by our team. We will notify you once approved.
+          {isApproved 
+            ? 'Welcome to the OrGo team! Redirecting you to your dashboard...' 
+            : 'Your application has been submitted and is currently under review by our team. We will notify you once approved.'}
         </p>
-        <div className="w-full max-w-xs space-y-4">
-          <button 
-            onClick={onComplete}
-            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors"
-          >
-            Return to Home
-          </button>
-          <a 
-            href="mailto:queries.girish@gmail.com"
-            className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center"
-          >
-            Contact Support
-          </a>
-          <button 
-            onClick={() => setShowCancelConfirm(true)}
-            className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors"
-          >
-            Cancel Application
-          </button>
-        </div>
+        {!isApproved && (
+          <div className="w-full max-w-xs space-y-4">
+            <button 
+              onClick={onComplete}
+              className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors"
+            >
+              Return to Home
+            </button>
+            <a 
+              href="mailto:queries.girish@gmail.com"
+              className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center"
+            >
+              Contact Support
+            </a>
+            <button 
+              onClick={() => setShowCancelConfirm(true)}
+              className="w-full py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors"
+            >
+              Cancel Application
+            </button>
+          </div>
+        )}
 
         {/* Custom Confirmation Modal */}
         <AnimatePresence>
