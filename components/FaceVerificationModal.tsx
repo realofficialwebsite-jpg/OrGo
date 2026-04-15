@@ -102,19 +102,28 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
       const referenceImg = await faceapi.fetchImage(referencePhotoUrl);
       const capturedImg = await faceapi.fetchImage(capturedBase64);
 
-      // Detect faces
-      const referenceDetection = await faceapi.detectSingleFace(referenceImg, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-      const liveDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.TinyFaceDetectorOptions())
+      // Configure detection options with a lower threshold for mobile leniency
+      const detectionOptions = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 });
+
+      // 1. Check the Reference Image (Firebase)
+      const referenceDetection = await faceapi.detectSingleFace(referenceImg, detectionOptions)
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-      if (!referenceDetection || !liveDetection) {
-        throw new Error("Could not detect face. Please ensure your face is clearly visible.");
+      if (!referenceDetection) {
+        throw new Error("Failed to detect face in your database reference photo. The data might be corrupted.");
       }
 
-      // Compare descriptors
+      // 2. Check the Live Capture (Canvas)
+      const liveDetection = await faceapi.detectSingleFace(capturedImg, detectionOptions)
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!liveDetection) {
+        throw new Error("Failed to detect face in the live camera capture. Please hold still and ensure good lighting.");
+      }
+
+      // 3. Compare descriptors
       const distance = faceapi.euclideanDistance(referenceDetection.descriptor, liveDetection.descriptor);
       
       if (distance < 0.6) {
