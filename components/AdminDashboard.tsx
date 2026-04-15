@@ -53,7 +53,7 @@ export const AdminDashboard: React.FC = () => {
     if (!isAuthenticated) return;
 
     // CRITICAL BUG FIX: Ensure collection name is 'pendingWorkers' exactly
-    const q = query(collection(db, 'pendingWorkers'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'pendingWorkers'), orderBy('SubmittedAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       // CRITICAL BUG FIX: Proper data mapping
       const workers = snapshot.docs.map(doc => ({
