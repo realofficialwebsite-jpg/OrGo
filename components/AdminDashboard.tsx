@@ -104,10 +104,13 @@ export const AdminDashboard: React.FC = () => {
         faceScanBase64: worker.faceScanBase64 || ''
       };
 
-      // 1. Save to the 'users' collection using the worker's Auth UID
+      // 1. Save to the 'workers' collection (for the onboarding listener)
+      await setDoc(doc(db, 'workers', worker.userId), mappedUserData);
+
+      // 2. Also update the 'users' collection (for the main app profile)
       await setDoc(doc(db, 'users', worker.userId), mappedUserData);
 
-      // 2. Delete from 'pendingWorkers'
+      // 3. Delete from 'pendingWorkers'
       await deleteDoc(doc(db, 'pendingWorkers', worker.id));
       
       toast.success(`Worker ${worker.fullName} Approved!`);

@@ -60,13 +60,15 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
   useEffect(() => {
     if (appStatus !== 'pending' || !auth.currentUser) return;
 
-    const unsubscribe = onSnapshot(doc(db, 'users', auth.currentUser.uid), (snapshot) => {
+    // The worker app MUST listen to the 'workers' collection now
+    const unsubscribe = onSnapshot(doc(db, 'workers', auth.currentUser.uid), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        if (data.status === 'approved' && data.role === 'professional') {
+        if (data.status === 'approved') {
+          // The admin has approved them!
           localStorage.removeItem('worker_application_status');
           setIsApproved(true);
-          // Small delay for the success animation if we had one, but here we just complete
+          // Small delay for the success animation
           setTimeout(() => {
             onComplete();
           }, 1500);
