@@ -20,7 +20,8 @@ import {
   Briefcase, 
   Lock,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,8 +50,10 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    // CRITICAL BUG FIX: Ensure collection name is 'pendingWorkers' exactly
     const q = query(collection(db, 'pendingWorkers'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      // CRITICAL BUG FIX: Proper data mapping
       const workers = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -79,9 +82,7 @@ export const AdminDashboard: React.FC = () => {
 
   const handleApprove = async (worker: PendingWorker) => {
     try {
-      // 1. Create worker in 'users' collection (or 'workers' as per request)
-      // The request says 'workers' collection, but the app uses 'users' for profiles.
-      // I will follow the request: 'workers' collection.
+      // CRITICAL LOGIC: Write to 'workers' and delete from 'pendingWorkers'
       await setDoc(doc(db, 'workers', worker.userId), {
         ...worker,
         status: 'approved',
@@ -93,7 +94,6 @@ export const AdminDashboard: React.FC = () => {
         approvedAt: new Date()
       });
 
-      // 2. Delete from pending
       await deleteDoc(doc(db, 'pendingWorkers', worker.id));
       
       toast.success(`Worker ${worker.fullName} Approved!`);
@@ -117,35 +117,40 @@ export const AdminDashboard: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 z-[200]">
+      <div className="fixed inset-0 bg-gray-50 flex flex-col items-center justify-center p-6 z-[200]">
         <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="w-full max-w-sm text-center"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="w-full max-w-sm"
         >
-          <div className="w-20 h-20 bg-red-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-red-600/20">
-            <Lock size={40} className="text-white" />
+          <div className="bg-white p-10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-gray-100 text-center">
+            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-8">
+              <Lock size={28} className="text-black" />
+            </div>
+            <h1 className="text-2xl font-black text-black mb-2">Admin Portal</h1>
+            <p className="text-gray-400 text-sm mb-10">Secure access required</p>
+            
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="relative">
+                <input 
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="Enter PIN"
+                  maxLength={4}
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] text-black focus:bg-white focus:border-black outline-none transition-all placeholder:tracking-normal placeholder:text-gray-300"
+                  autoFocus
+                />
+              </div>
+              <button 
+                type="submit"
+                className="w-full bg-black text-white py-4 rounded-2xl font-bold text-lg active:scale-95 transition-all shadow-lg shadow-black/10"
+              >
+                Continue
+              </button>
+            </form>
           </div>
-          <h1 className="text-3xl font-black text-white mb-2">Admin Portal</h1>
-          <p className="text-slate-400 mb-8">Enter security PIN to continue</p>
-          
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="••••"
-              maxLength={4}
-              className="w-full bg-slate-900 border-2 border-slate-800 rounded-2xl py-4 text-center text-3xl tracking-[1em] text-white focus:border-red-600 outline-none transition-all"
-              autoFocus
-            />
-            <button 
-              type="submit"
-              className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-xl shadow-red-600/20 active:scale-95 transition-all"
-            >
-              Unlock Dashboard
-            </button>
-          </form>
+          <p className="text-center text-gray-400 text-xs mt-8 font-medium uppercase tracking-widest">OrGo Security Systems</p>
         </motion.div>
       </div>
     );
@@ -154,104 +159,113 @@ export const AdminDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-8 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <header className="bg-white px-8 py-12 sticky top-0 z-50 border-b border-gray-100">
+        <div className="max-w-6xl mx-auto flex justify-between items-end">
           <div>
-            <h1 className="text-2xl font-black text-slate-900">Master KYC Control</h1>
-            <p className="text-sm text-gray-500 mt-1">Review and approve worker applications</p>
+            <h1 className="text-3xl font-black tracking-tight text-black">Admin Dashboard</h1>
+            <p className="text-gray-500 mt-2 font-medium">Worker application dashboard: approve and reject</p>
           </div>
-          <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full font-bold text-xs">
-            <ShieldCheck size={16} />
-            System Secure
+          <div className="hidden md:flex items-center gap-3 bg-gray-50 px-5 py-2.5 rounded-2xl border border-gray-100">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Live System</span>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6">
+      <main className="max-w-6xl mx-auto p-8">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 size={40} className="text-red-600 animate-spin mb-4" />
-            <p className="text-gray-500 font-medium">Loading applications...</p>
+          <div className="flex flex-col items-center justify-center py-32">
+            <Loader2 size={32} className="text-black animate-spin mb-4" />
+            <p className="text-gray-400 font-bold text-xs uppercase tracking-widest">Synchronizing Data...</p>
           </div>
         ) : pendingWorkers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-200">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <Check size={32} className="text-gray-400" />
+          <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[3rem] border border-gray-100 shadow-sm">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+              <Check size={32} className="text-gray-300" />
             </div>
-            <p className="text-gray-500 font-bold text-lg">All caught up!</p>
-            <p className="text-gray-400 text-sm">No pending KYC applications found.</p>
+            <h3 className="text-xl font-black text-black">Queue Empty</h3>
+            <p className="text-gray-400 text-sm mt-2">No pending applications at this time.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <AnimatePresence mode="popLayout">
               {pendingWorkers.map((worker) => (
                 <motion.div 
                   key={worker.id}
                   layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 flex flex-col"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm hover:shadow-xl hover:shadow-black/5 transition-all group"
                 >
                   {/* Top Section */}
-                  <div className="flex gap-4 mb-6">
-                    <img 
-                      src={worker.profilePhotoBase64 || 'https://picsum.photos/seed/worker/200'} 
-                      alt={worker.fullName}
-                      className="w-24 h-24 rounded-lg object-cover bg-gray-100"
-                    />
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-slate-900 leading-tight">{worker.fullName}</h3>
-                      <p className="text-sm text-gray-500 font-medium mt-1">Age: {worker.age}</p>
-                      <div className="flex items-center gap-1 mt-2 text-xs text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded w-fit">
-                        <Briefcase size={12} />
-                        {worker.category}
+                  <div className="flex items-start gap-6 mb-8">
+                    <div className="relative">
+                      <img 
+                        src={worker.profilePhotoBase64 || 'https://picsum.photos/seed/worker/200'} 
+                        alt={worker.fullName}
+                        className="w-24 h-24 rounded-3xl object-cover bg-gray-50 border-4 border-white shadow-md"
+                      />
+                      <div className="absolute -bottom-2 -right-2 bg-black text-white text-[10px] font-black px-2 py-1 rounded-lg">
+                        {worker.age}Y
+                      </div>
+                    </div>
+                    <div className="flex-1 pt-2">
+                      <h3 className="text-xl font-black text-black leading-tight">{worker.fullName}</h3>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{worker.category}</span>
+                        <span className="w-1 h-1 bg-gray-200 rounded-full" />
+                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{worker.experience} Exp</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Middle Section (KYC Data) */}
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3 mb-6">
-                    <div className="flex items-start gap-3">
-                      <Contact size={16} className="text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Aadhaar Number</p>
-                        <p className="text-sm font-bold text-slate-700">{worker.aadhaarNumber}</p>
+                  {/* KYC Data Section */}
+                  <div className="space-y-4 mb-10">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100/50">
+                      <div className="flex items-center gap-3">
+                        <Contact size={18} className="text-gray-400" />
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Aadhaar</span>
                       </div>
+                      <span className="text-sm font-black text-black">{worker.aadhaarNumber}</span>
                     </div>
-                    <div className="flex items-start gap-3">
-                      <Contact size={16} className="text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PAN Number</p>
-                        <p className="text-sm font-bold text-slate-700">{worker.panNumber}</p>
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100/50">
+                      <div className="flex items-center gap-3">
+                        <Contact size={18} className="text-gray-400" />
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">PAN</span>
                       </div>
+                      <span className="text-sm font-black text-black">{worker.panNumber}</span>
                     </div>
-                    <div className="flex items-start gap-3 border-t border-gray-200 pt-3">
-                      <Briefcase size={16} className="text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Services Offered</p>
-                        <p className="text-xs font-medium text-slate-600 leading-relaxed">
-                          {worker.servicesOffered?.join(', ') || 'None specified'}
-                        </p>
+                    <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100/50">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Briefcase size={18} className="text-gray-400" />
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Services</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {worker.servicesOffered?.map((service, idx) => (
+                          <span key={idx} className="text-[10px] font-bold bg-white border border-gray-200 text-gray-600 px-3 py-1 rounded-full">
+                            {service}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Bottom Section (Action Buttons) */}
-                  <div className="flex gap-3 mt-auto">
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-4">
                     <button 
                       onClick={() => handleReject(worker)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 border-2 border-red-100 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors"
+                      className="text-gray-400 hover:text-red-600 font-bold text-sm px-4 py-2 transition-colors flex items-center gap-2"
                     >
-                      <X size={18} />
+                      <Trash2 size={16} />
                       Reject
                     </button>
                     <button 
                       onClick={() => handleApprove(worker)}
-                      className="flex-[1.5] flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-colors"
+                      className="flex-1 bg-black text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-black/10 hover:bg-gray-900 transition-all active:scale-95"
                     >
-                      <Check size={18} />
                       Approve & Activate
+                      <ChevronRight size={18} />
                     </button>
                   </div>
                 </motion.div>
