@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Camera, CheckCircle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../src/firebase';
 import { orgoServices } from '../src/servicesData';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -409,19 +409,24 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
     try {
       const user = auth.currentUser;
       
-      await addDoc(collection(db, 'pendingWorkers'), {
-        ...formData,
-        userId: user.uid,
-        status: 'pending',
-        submittedAt: serverTimestamp(),
-      });
-
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
+      // 1. Save to main users collection for the Daily Security Check
+      await setDoc(doc(db, 'users', user.uid), {
+        faceScanBase64: formData.faceScanBase64,
+        photo: formData.faceScanBase64,
+        name: formData.fullName,
+        email: formData.email,
         skills: formData.servicesOffered.length > 0 ? formData.servicesOffered : ['Pending'],
         phone: formData.mobileNumber,
         age: formData.age,
         experience: formData.yearsOfExperience,
+      }, { merge: true });
+
+      // 2. Submit the application to pendingWorkers
+      await setDoc(doc(db, 'pendingWorkers', user.uid), {
+        ...formData,
+        userId: user.uid,
+        status: 'pending',
+        submittedAt: serverTimestamp(),
       });
 
       localStorage.setItem('worker_application_status', 'pending');
