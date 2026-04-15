@@ -101,6 +101,11 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
     setErrorMessage('');
 
     try {
+      // 0. Check if reference photo exists
+      if (!referencePhotoUrl) {
+        throw new Error('Secure face scan missing from database. Please contact Admin.');
+      }
+
       // 1. Get reference image descriptor
       const referenceImg = document.getElementById('reference-image') as HTMLImageElement;
       const referenceDetection = await faceapi.detectSingleFace(referenceImg, new faceapi.TinyFaceDetectorOptions())
@@ -108,7 +113,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
         .withFaceDescriptor();
 
       if (!referenceDetection) {
-        throw new Error('Could not detect face in reference photo. Please update your profile photo.');
+        throw new Error('Secure face scan missing from database. Please contact Admin.');
       }
 
       // 2. Get live face descriptor

@@ -151,4 +151,5 @@ export interface UserProfile {
   platformDues?: number;
   paymentStatus?: 'pending' | 'under_review' | 'paid';
   lastFaceScanAt?: any;
+  faceScanBase64?: string;
 }
