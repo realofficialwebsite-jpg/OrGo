@@ -13,7 +13,7 @@ import { Category, SubCategory, ServiceItem, CartItem, AppView, Booking, UserPro
 import { APP_CATEGORIES } from './constants';
 import { useCart } from './CartContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { 
   Home, 
@@ -742,54 +742,58 @@ const App: React.FC = () => {
 
   if (loading) return <div className="h-screen flex items-center justify-center text-red-600 font-bold">Loading OrGo...</div>;
 
-  if (!user) return <Auth onLoginSuccess={() => {}} />;
-
-  // If professional but no skills, they might need registration (or we can just let them in)
-  // The user requested a specific registration flow.
-  if (profile?.role === 'professional' && (!profile.skills || profile.skills.length === 0)) {
+  const WorkerDashboard = () => {
+    if (!user) return <Auth onLoginSuccess={() => {}} />;
+    if (profile?.role === 'professional' && (!profile.skills || profile.skills.length === 0)) {
+      return <WorkerOnboarding onComplete={fetchProfile} onCancel={() => signOut(auth)} />;
+    }
     return (
-      <WorkerOnboarding 
-        onComplete={fetchProfile} 
-        onCancel={() => signOut(auth)} 
-      />
+      <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
+        <NotificationHandler />
+        <WorkerApp 
+          user={user} 
+          profile={profile!} 
+          onSwitchMode={() => setActiveMode('customer')} 
+          onLogout={() => signOut(auth)}
+          fetchProfile={fetchProfile}
+        />
+      </div>
     );
-  }
+  };
+
+  const UserApp = () => {
+    if (!user) return <Auth onLoginSuccess={() => {}} />;
+    return (
+      <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
+        <NotificationHandler />
+        <CustomerApp 
+          user={user}
+          profile={profile}
+          onLogout={() => signOut(auth)}
+          fetchProfile={fetchProfile}
+          orders={orders}
+          loadingOrders={loadingOrders}
+          fetchOrders={fetchOrders}
+          handleCancelOrder={handleCancelOrder}
+          cancelling={cancelling}
+          setActiveMode={setActiveMode}
+        />
+      </div>
+    );
+  };
 
   return (
     <BrowserRouter>
       <Routes>
+        {/* 1. The Admin Route must be prioritized */}
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="*" element={
-          <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
-            <NotificationHandler />
-            <AnimatePresence mode="wait">
-              {activeMode === 'worker' && profile?.role === 'professional' ? (
-                <WorkerApp 
-                  key="worker-app"
-                  user={user} 
-                  profile={profile} 
-                  onSwitchMode={() => setActiveMode('customer')} 
-                  onLogout={() => signOut(auth)}
-                  fetchProfile={fetchProfile}
-                />
-              ) : (
-                <CustomerApp 
-                  key="customer-app"
-                  user={user}
-                  profile={profile}
-                  onLogout={() => signOut(auth)}
-                  fetchProfile={fetchProfile}
-                  orders={orders}
-                  loadingOrders={loadingOrders}
-                  fetchOrders={fetchOrders}
-                  handleCancelOrder={handleCancelOrder}
-                  cancelling={cancelling}
-                  setActiveMode={setActiveMode}
-                />
-              )}
-            </AnimatePresence>
-          </div>
-        } />
+
+        {/* 2. Worker specific routes */}
+        <Route path="/worker/*" element={<WorkerDashboard />} />
+
+        {/* 3. The Catch-all / Home page must be at the BOTTOM */}
+        <Route path="/" element={<UserApp />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );
