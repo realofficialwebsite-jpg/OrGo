@@ -22,10 +22,6 @@ interface AuthProps {
 type AuthMode = 'LOGIN' | 'SIGNUP' | 'FORGOT';
 
 export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
-  useEffect(() => {
-    console.log('Auth: Mounted');
-  }, []);
-
   const [mode, setMode] = useState<AuthMode>('LOGIN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

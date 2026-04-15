@@ -9,7 +9,7 @@ export enum OperationType {
   WRITE = 'write',
 }
 
-interface FirestoreErrorInfo {
+export interface FirestoreErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;
@@ -46,7 +46,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
-  };
+  }
   // Safe stringify to handle potential circular references
   const safeStringify = (obj: any) => {
     try {

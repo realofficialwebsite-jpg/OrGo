@@ -101,7 +101,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       });
       fetchProfile();
     } catch (error) {
-      console.error('Error saving settings:', error instanceof Error ? error.message : String(error));
+      console.error('Error saving settings:', error);
     } finally {
       setIsSavingSettings(false);
     }
@@ -187,7 +187,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       });
       setNewMessage('');
     } catch (error) {
-      console.error('Error sending message:', error instanceof Error ? error.message : String(error));
+      console.error('Error sending message:', error);
     }
   };
 
@@ -303,7 +303,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           });
           toast.success('Welcome back!');
         } catch (error) {
-          console.error('Error updating status:', error instanceof Error ? error.message : String(error));
+          console.error('Error updating status:', error);
           setIsOnline(false);
         }
       } else {
@@ -318,7 +318,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           status: 'offline' 
         });
       } catch (error) {
-        console.error('Error updating status:', error instanceof Error ? error.message : String(error));
+        console.error('Error updating status:', error);
         setIsOnline(true);
       }
     }
@@ -330,7 +330,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
       setShowEditServices(false);
       fetchProfile();
     } catch (error) {
-      console.error('Error updating services:', error instanceof Error ? error.message : String(error));
+      console.error('Error updating services:', error);
       alert('Failed to update services.');
     }
   };
@@ -377,7 +377,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         setRequests(prev => prev.filter(r => r.id !== orderId));
       }
     } catch (error) {
-      console.error(`Error updating order:`, error instanceof Error ? error.message : String(error));
+      console.error(`Error updating order:`, error);
       alert('Failed to process request.');
     }
   };
@@ -387,7 +387,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
     try {
       await updateDoc(doc(db, 'order', orderId), { status: 'completed' });
     } catch (error) {
-      console.error('Error completing job:', error instanceof Error ? error.message : String(error));
+      console.error('Error completing job:', error);
     }
   };
 
@@ -798,7 +798,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                       setIsEditingProfile(false);
                       fetchProfile();
                     } catch (error) {
-                      console.error("Error updating profile:", error instanceof Error ? error.message : String(error));
+                      console.error("Error updating profile:", error);
                     }
                   }}
                   className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold text-xs"
@@ -1398,7 +1398,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                                       try {
                                         await updateDoc(doc(db, 'users', user.uid), { skills: newSkills });
                                       } catch (error) {
-                                        console.error('Error updating services:', error instanceof Error ? error.message : String(error));
+                                        console.error('Error updating services:', error);
                                       }
                                     }}
                                   />

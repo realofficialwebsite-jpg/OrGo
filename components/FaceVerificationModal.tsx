@@ -143,10 +143,9 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
         setErrorMessage('Verification Failed. Face Mismatch.');
       }
     } catch (error: any) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('Verification error:', errorMessage);
+      console.error('Verification error:', error);
       setVerificationStatus('failure');
-      setErrorMessage(errorMessage || 'An error occurred during verification.');
+      setErrorMessage(error.message || 'An error occurred during verification.');
     } finally {
       setIsVerifying(false);
     }

@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Camera, CheckCircle, Loader2 } from 'lucide-react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { ChevronLeft, Camera, CheckCircle } from 'lucide-react';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../src/firebase';
 import { orgoServices } from '../src/servicesData';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -51,47 +49,11 @@ const INITIAL_STATE: OnboardingState = {
 const LANGUAGES = ['Hindi', 'English', 'Punjabi', 'Marathi', 'Gujarati', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Bengali'];
 
 export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () => void }> = ({ onComplete, onCancel }) => {
-  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<OnboardingState>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [appStatus, setAppStatus] = useState<string | null>(localStorage.getItem('worker_application_status'));
-  const [isChecking, setIsChecking] = useState(true);
-
-  // Instant Teleport Logic
-  useEffect(() => {
-    setIsChecking(true); // Lock the screen on load
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setIsChecking(false);
-        return;
-      }
-      const uid = user.uid;
-
-      // 1. Listen to MAIN user profile for approval
-      const unsubscribeSnapshot = onSnapshot(doc(db, 'users', uid), async (docSnap) => {
-        if (docSnap.exists() && docSnap.data().role === 'professional' && docSnap.data().status === 'approved') {
-          // INSTANT TELEPORT!
-          onComplete(); // Fire parent prop just in case
-          navigate('/worker-dashboard'); // Force the URL change
-          return; 
-        } else {
-          // 2. If not approved, check if they are pending
-          const pendingDoc = await getDoc(doc(db, 'pendingWorkers', uid));
-          if (pendingDoc.exists()) {
-            setAppStatus('pending');
-          }
-          // Unlock the screen only after all checks are done
-          setIsChecking(false); 
-        }
-      });
-
-      return () => unsubscribeSnapshot();
-    });
-
-    return () => unsubscribeAuth();
-  }, [onComplete, navigate]);
 
   // Service Selection State
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
@@ -447,7 +409,7 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
     try {
       const user = auth.currentUser;
       
-      await setDoc(doc(db, 'pendingWorkers', user.uid), {
+      await addDoc(collection(db, 'pendingWorkers'), {
         ...formData,
         userId: user.uid,
         status: 'pending',
@@ -482,24 +444,13 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
     setShowCancelConfirm(false);
   };
 
-  if (isChecking) {
-    return (
-      <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6">
-        <Loader2 className="w-12 h-12 text-gray-900 animate-spin mb-4" />
-        <h2 className="text-xl font-bold text-gray-900">Verifying secure profile...</h2>
-      </div>
-    );
-  }
-
   if (appStatus === 'pending') {
     return (
       <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6">
         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
           <CheckCircle className="w-10 h-10 text-gray-900" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Review in Progress
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Review in Progress</h1>
         <p className="text-gray-500 text-center mb-8 max-w-sm">
           Your application has been submitted and is currently under review by our team. We will notify you once approved.
         </p>
