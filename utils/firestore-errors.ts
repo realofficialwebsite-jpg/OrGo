@@ -47,39 +47,29 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
+
   // Safe stringify to handle potential circular references
   const safeStringify = (obj: any) => {
-    try {
-      const cache = new WeakSet();
-      return JSON.stringify(obj, (key, value) => {
-        if (typeof value === "object" && value !== null) {
-          if (cache.has(value)) {
-            return "[Circular]";
-          }
-          cache.add(value);
+    const cache = new WeakSet();
+    return JSON.stringify(obj, (key, value) => {
+      if (typeof value === "object" && value !== null) {
+        if (cache.has(value)) {
+          return "[Circular]";
         }
-        return value;
-      });
-    } catch (e) {
-      try {
-        // Fallback for objects that can't be handled by WeakSet (e.g. non-extensible)
-        const cache = new Set();
-        return JSON.stringify(obj, (key, value) => {
-          if (typeof value === "object" && value !== null) {
-            if (cache.has(value)) {
-              return "[Circular]";
-            }
-            cache.add(value);
-          }
-          return value;
-        });
-      } catch (e2) {
-        return "[Serialization Error]";
+        cache.add(value);
       }
-    }
+      return value;
+    });
   };
 
-  const errorString = safeStringify(errInfo);
-  console.error('Firestore Error: ', errorString);
-  throw new Error(errorString);
+  try {
+    const errorString = safeStringify(errInfo);
+    console.error('Firestore Error:', errorString);
+    throw new Error(errorString);
+  } catch (stringifyError) {
+    // Fallback if even safeStringify fails
+    const fallbackMessage = `Firestore Error [${operationType}] at [${path}]: ${errInfo.error}`;
+    console.error(fallbackMessage);
+    throw new Error(fallbackMessage);
+  }
 }

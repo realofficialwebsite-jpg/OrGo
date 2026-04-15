@@ -432,7 +432,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       });
       setNewMessage('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending message:', error instanceof Error ? error.message : String(error));
     }
   };
   const [showNotifications, setShowNotifications] = useState(false);
@@ -523,7 +523,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             setSelectedAddress({ type: 'Current Location', address: data.display_name });
           }
         } catch (error) {
-          console.error("Error fetching address:", error);
+          console.error("Error fetching address:", error instanceof Error ? error.message : String(error));
           setCurrentLocation('Poornima University, Jaipur');
         }
       },
@@ -541,7 +541,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             errorMsg = 'The request to get user location timed out.';
             break;
         }
-        console.error("Geolocation error:", errorMsg, error);
+        console.error("Geolocation error:", errorMsg);
         // Fallback to default location
         setCurrentLocation('Poornima University, Jaipur');
       },

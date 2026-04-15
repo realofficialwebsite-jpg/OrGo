@@ -61,7 +61,7 @@ export const AdminDashboard: React.FC = () => {
       setPendingWorkers(workers);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching pending workers:", error);
+      console.error("Error fetching pending workers:", error instanceof Error ? error.message : String(error));
       toast.error("Failed to load applications");
       setLoading(false);
     });
@@ -98,7 +98,7 @@ export const AdminDashboard: React.FC = () => {
       
       toast.success(`Worker ${worker.fullName} Approved!`);
     } catch (error) {
-      console.error("Error approving worker:", error);
+      console.error("Error approving worker:", error instanceof Error ? error.message : String(error));
       toast.error("Approval failed");
     }
   };
@@ -110,7 +110,7 @@ export const AdminDashboard: React.FC = () => {
       await deleteDoc(doc(db, 'pendingWorkers', worker.id));
       toast.error("Application Rejected");
     } catch (error) {
-      console.error("Error rejecting worker:", error);
+      console.error("Error rejecting worker:", error instanceof Error ? error.message : String(error));
       toast.error("Rejection failed");
     }
   };
