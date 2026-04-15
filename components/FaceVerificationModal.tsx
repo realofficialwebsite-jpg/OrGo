@@ -1,57 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
-import * as faceapi from 'face-api.js';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Camera, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { X, Camera, ShieldCheck, Search } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../src/firebase';
-import { toast } from 'sonner';
 
 interface FaceVerificationModalProps {
   workerId: string;
-  referencePhotoUrl: string;
+  referencePhotoUrl: string; // Not strictly needed for manual flow, but kept for prop compatibility
   onSuccess: () => void;
   onClose: () => void;
 }
 
 export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ 
   workerId, 
-  referencePhotoUrl, 
   onSuccess, 
   onClose 
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'success' | 'failure'>('idle');
-
-  const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
-
-  useEffect(() => {
-    const loadModels = async () => {
-      try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        ]);
-        setIsModelLoaded(true);
-        startVideo();
-      } catch (error) {
-        console.error('Error loading face-api models:', error);
-        setErrorMessage('Failed to load security models. Please check your connection.');
-      }
-    };
-    loadModels();
-
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   const startVideo = async () => {
     try {
@@ -72,7 +40,12 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
     }
   };
 
-  const handleCaptureAndVerify = async () => {
+  const handleContinueToCamera = () => {
+    setStep(2);
+    startVideo();
+  };
+
+  const handleCaptureAndSubmit = async () => {
     if (!videoRef.current || videoRef.current.readyState !== 4) {
       setErrorMessage("Camera still loading. Please wait.");
       return;
@@ -80,7 +53,6 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
 
     setIsProcessing(true);
     setErrorMessage('');
-    setVerificationStatus('idle');
 
     try {
       // 1. Bulletproof Canvas Draw
@@ -98,57 +70,23 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
       // 2. Get the captured image as Base64 with slight compression
       const capturedBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
-      // 3. Compare the captured image against the database reference
-      if (!referencePhotoUrl) throw new Error("Reference scan missing from database.");
+      // 3. Update Firestore
+      await updateDoc(doc(db, 'users', workerId), {
+        dailyVerificationImage: capturedBase64,
+        dailySecurityStatus: 'pending'
+      });
 
-      // Load reference and captured images
-      const referenceImg = await faceapi.fetchImage(referencePhotoUrl);
-      const capturedImg = await faceapi.fetchImage(capturedBase64);
-
-      // Configure detection options with a lower threshold for mobile leniency
-      const detectionOptions = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 });
-
-      // 1. Check the Reference Image (Firebase)
-      const referenceDetection = await faceapi.detectSingleFace(referenceImg, detectionOptions)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
-      if (!referenceDetection) {
-        throw new Error("Failed to detect face in your database reference photo. The data might be corrupted.");
+      // Stop video stream
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
       }
 
-      // 2. Check the Live Capture (Canvas)
-      const liveDetection = await faceapi.detectSingleFace(capturedImg, detectionOptions)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
-      if (!liveDetection) {
-        throw new Error("ALIGNMENT_FAIL");
-      }
-
-      // 3. Compare descriptors
-      const distance = faceapi.euclideanDistance(referenceDetection.descriptor, liveDetection.descriptor);
-      
-      if (distance < 0.6) {
-        setVerificationStatus('success');
-        await updateDoc(doc(db, 'users', workerId), {
-          status: 'online',
-          isOnline: true,
-          lastFaceScanAt: serverTimestamp()
-        });
-        toast.success('Identity Verified! You are now online.');
-        setTimeout(onSuccess, 1500);
-      } else {
-        throw new Error("Face does not match. Please try again.");
-      }
+      // Move to Step 3
+      setStep(3);
     } catch (err: any) {
       console.error(err);
-      if (err.message === "ALIGNMENT_FAIL") {
-        setErrorMessage("Fit your face inside the guide and find better lighting.");
-      } else {
-        setErrorMessage(err.message || "Could not verify identity.");
-      }
-      setVerificationStatus('failure');
+      setErrorMessage(err.message || "Could not submit photo.");
     } finally {
       setIsProcessing(false);
     }
@@ -168,95 +106,88 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
         <X size={24} />
       </button>
 
-      <div className="flex flex-col items-center">
-        <h2 className="text-2xl font-black text-slate-900 mt-10 text-center">Daily Security Check</h2>
-        <p className="text-sm text-gray-500 text-center mt-2 mx-6">
-          Fit your face inside the guide
-        </p>
-      </div>
-
-      {/* Circular Camera Container */}
-      <div className="w-64 h-64 mx-auto my-10 rounded-full overflow-hidden border-[6px] border-gray-100 shadow-[0_10px_40px_rgba(0,0,0,0.08)] relative bg-gray-50">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-cover scale-x-[-1]"
-        />
-        
-        {/* Overlay for status */}
-        <AnimatePresence>
-          {verificationStatus === 'success' && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 bg-emerald-500/10 flex items-center justify-center z-20 backdrop-blur-[2px]"
-            >
-              <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
-                <Check size={32} className="text-white" strokeWidth={4} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Scanning State */}
-      {isProcessing && (
-        <p className="text-gray-500 animate-pulse text-sm font-medium">Analyzing biometrics...</p>
+      {step === 1 && (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-sm text-center">
+          <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-8">
+            <ShieldCheck size={48} className="text-blue-600" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-4">
+            Take a photo of yourself to confirm it's your account.
+          </h2>
+          <p className="text-sm text-gray-500 mb-12 leading-relaxed">
+            We regularly ask you to verify your identity to help secure your account and protect our community. By taking a photo, you agree to submit a live photo to our admin team for verification.
+          </p>
+          <button
+            onClick={handleContinueToCamera}
+            className="w-full py-4 bg-black text-white font-bold rounded-xl text-lg active:scale-95 transition-all"
+          >
+            Continue
+          </button>
+        </div>
       )}
 
-      <div className="mt-auto mb-10 w-full flex flex-col items-center gap-4">
-        {errorMessage && (
-          <div className="bg-red-50 text-red-600 border border-red-100 px-4 py-3 rounded-xl text-sm font-medium mx-6 text-center flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2">
-              <AlertCircle size={16} className="shrink-0" />
-              <span>{errorMessage}</span>
+      {step === 2 && (
+        <div className="flex flex-col items-center w-full h-full">
+          <div className="flex flex-col items-center">
+            <h2 className="text-2xl font-black text-slate-900 mt-10 text-center">Daily Security Check</h2>
+            <p className="text-sm text-gray-500 text-center mt-2 mx-6">
+              Fit your face inside the guide and ensure good lighting.
+            </p>
+          </div>
+
+          {/* Circular Camera Container */}
+          <div className="w-64 h-64 mx-auto my-10 rounded-full overflow-hidden border-[6px] border-gray-100 shadow-[0_10px_40px_rgba(0,0,0,0.08)] relative bg-gray-50">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+          </div>
+
+          {errorMessage && (
+            <div className="bg-red-50 text-red-600 border border-red-100 px-4 py-3 rounded-xl text-sm font-medium mx-6 mb-4 text-center w-full max-w-sm">
+              {errorMessage}
+            </div>
+          )}
+
+          <div className="mt-auto mb-10 w-full max-w-sm">
+            <button
+              onClick={handleCaptureAndSubmit}
+              disabled={isProcessing}
+              className="w-full py-4 bg-black text-white font-bold rounded-xl text-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+            >
+              {isProcessing ? 'Processing...' : 'Capture & Submit'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="flex flex-col items-center justify-center h-full w-full max-w-sm text-center">
+          <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-8 relative">
+            <Search size={40} className="text-gray-400" />
+            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-500 rounded-full border-4 border-white flex items-center justify-center">
+              <ShieldCheck size={16} className="text-white" />
             </div>
           </div>
-        )}
-
-        {verificationStatus === 'success' ? (
-          <div className="text-center">
-            <p className="text-emerald-600 font-bold text-lg">Identity Verified!</p>
-            <p className="text-slate-400 text-xs mt-1">Redirecting to dashboard...</p>
-          </div>
-        ) : (
-          <button
-            onClick={handleCaptureAndVerify}
-            disabled={!isModelLoaded || isProcessing}
-            className="bg-red-600 text-white font-bold text-lg w-[calc(100%-3rem)] mx-6 py-4 rounded-2xl shadow-lg shadow-red-200 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 size={20} className="animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Camera size={20} />
-                Capture & Verify
-              </>
-            )}
-          </button>
-        )}
-
-        {!isModelLoaded && !errorMessage && (
-          <p className="text-center text-slate-400 text-[10px] font-bold uppercase tracking-widest animate-pulse">
-            Initializing Security...
+          <h2 className="text-2xl font-black text-slate-900 mb-4">
+            Stand by while we check your photo.
+          </h2>
+          <p className="text-sm text-gray-500 mb-12 leading-relaxed">
+            This usually takes a few minutes. Thanks for helping keep your account secure.
           </p>
-        )}
-      </div>
-
-      {/* Hidden Reference Image */}
-      <img 
-        id="reference-image" 
-        src={referencePhotoUrl} 
-        alt="Reference" 
-        className="hidden" 
-        crossOrigin="anonymous"
-        referrerPolicy="no-referrer"
-      />
+          <button
+            onClick={() => {
+              onSuccess(); // Close the modal
+            }}
+            className="w-full py-4 bg-black text-white font-bold rounded-xl text-lg active:scale-95 transition-all"
+          >
+            Got it
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 };

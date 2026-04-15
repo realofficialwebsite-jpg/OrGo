@@ -153,4 +153,6 @@ export interface UserProfile {
   lastFaceScanAt?: any;
   faceScanBase64?: string;
   profilePhotoBase64?: string;
+  dailySecurityStatus?: 'pending' | 'approved' | 'rejected' | 'idle';
+  dailyVerificationImage?: string;
 }

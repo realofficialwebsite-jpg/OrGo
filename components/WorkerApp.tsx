@@ -31,7 +31,8 @@ import {
   MessageSquare,
   Send,
   Plus,
-  Wallet
+  Wallet,
+  AlertTriangle
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -79,6 +80,16 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   const [isEditingAvailability, setIsEditingAvailability] = useState(false);
   const [editProfileData, setEditProfileData] = useState({ name: profile.name, email: profile.email, photo: profile.photo || '' });
   const [showFaceVerification, setShowFaceVerification] = useState(false);
+
+  useEffect(() => {
+    if (profile.dailySecurityStatus === 'approved' && !isOnline) {
+      setIsOnline(true);
+      updateDoc(doc(db, 'users', user.uid), { 
+        isOnline: true, 
+        status: 'online' 
+      }).catch(console.error);
+    }
+  }, [profile.dailySecurityStatus]);
 
   useEffect(() => {
     if (requests.length > 0 && activeTab !== WorkerTab.REQUESTS) {
@@ -289,12 +300,8 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
 
   const toggleOnline = async () => {
     if (!isOnline) {
-      // Gatekeeper logic: Check if verified today
-      const lastScan = profile.lastFaceScanAt;
-      const isVerifiedToday = lastScan && 
-        (lastScan.toDate ? lastScan.toDate().toDateString() : new Date(lastScan).toDateString()) === new Date().toDateString();
-
-      if (isVerifiedToday) {
+      // Gatekeeper logic: Check if approved
+      if (profile.dailySecurityStatus === 'approved') {
         setIsOnline(true);
         try {
           await updateDoc(doc(db, 'users', user.uid), { 
@@ -307,7 +314,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
           setIsOnline(false);
         }
       } else {
-        setShowFaceVerification(true);
+        toast.error('Please complete required actions to go online.');
       }
     } else {
       // Go Offline
@@ -392,7 +399,9 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   };
 
   const renderRequests = () => {
-    if (!isOnline) {
+    const showActionRequired = !isOnline && profile.dailySecurityStatus !== 'approved';
+
+    if (!isOnline && !showActionRequired) {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -410,6 +419,23 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
 
     return (
       <div className="space-y-4">
+        {showActionRequired && (
+          <button 
+            onClick={() => setShowFaceVerification(true)}
+            className="w-full bg-red-50 border border-red-100 rounded-[32px] p-6 text-left active:scale-[0.98] transition-all shadow-sm"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600 shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-red-900 text-lg mb-1">Required actions (1) - Go online when resolved</h3>
+                <p className="text-sm text-red-700">Take a photo of yourself to confirm it's your account.</p>
+              </div>
+            </div>
+          </button>
+        )}
+
         {/* Category Filter */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
           {['All', ...(profile.skills || [])].map(cat => (
@@ -501,53 +527,10 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             <MapPin size={32} />
           </div>
           <p className="font-bold text-sm uppercase tracking-widest">No active jobs</p>
-          <p className="text-xs mt-1">Your assigned jobs will appear on the map</p>
+          <p className="text-xs mt-1">Your assigned jobs will appear here</p>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Map UI Enhancement */}
-          <div className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-gray-100 h-[300px] w-full relative">
-            <img 
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=874&auto=format&fit=crop" 
-              alt="Map" 
-              className="w-full h-full object-cover opacity-80" 
-              referrerPolicy="no-referrer" 
-            />
-            {/* Simulated Markers */}
-            {activeJobs.map((job, idx) => (
-              <motion.div
-                key={job.id}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute"
-                style={{ 
-                  top: `${30 + idx * 20}%`, 
-                  left: `${40 + idx * 15}%` 
-                }}
-              >
-                <div className="relative group">
-                  <div className="w-10 h-10 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/40 border-2 border-white transform -rotate-45">
-                    <div className="transform rotate-45">
-                      <Wrench size={16} className="text-white" />
-                    </div>
-                  </div>
-                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white px-3 py-1.5 rounded-xl shadow-xl border border-gray-100 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] font-bold text-gray-900">{job.cartItems?.[0]?.title}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-            {/* Worker Location Marker */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="relative">
-                <div className="w-12 h-12 bg-blue-500/20 rounded-full animate-ping absolute inset-0" />
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center border-4 border-white shadow-2xl relative z-10">
-                  <Navigation size={20} className="text-white" />
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="space-y-4">
             <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Active Job Details</h3>
             {activeJobs.map(order => (
@@ -1121,7 +1104,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 font-display">
             {activeTab === WorkerTab.REQUESTS && 'New Requests'}
-            {activeTab === WorkerTab.MAP && 'Active Jobs Map'}
+            {activeTab === WorkerTab.MAP && 'Active Jobs'}
             {activeTab === WorkerTab.WALLET && 'My Earnings'}
             {activeTab === WorkerTab.HISTORY && 'Job History'}
             {activeTab === WorkerTab.PROFILE && 'My Profile'}
