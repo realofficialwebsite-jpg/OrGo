@@ -75,7 +75,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     } catch (err: any) {
       console.error("Google Login Error:", err);
       
-      // Keeping the popup debug trick just in case!
       const errorDetail = err.message || JSON.stringify(err);
       alert("FIREBASE ERROR: " + errorDetail);
       
@@ -206,4 +205,114 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 <div className="absolute bottom-0 right-0 bg-red-600 p-3 rounded-2xl shadow-lg border-2 border-white z-30 -rotate-6">
                   <UserPlus size={28} className="text-white" strokeWidth={1.5} />
                 </div>
-                <div className="absolute top-2 left-2 bg-white
+                <div className="absolute top-2 left-2 bg-white p-2 rounded-full shadow-md border border-red-50 z-30">
+                  <Sparkles size={20} className="text-red-600" strokeWidth={1.5} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-5 text-center shrink-0">
+            <h2 className="text-2xl font-display font-bold text-[#0A192F] mb-1 tracking-tight">
+              {isLogin ? 'Welcome Back' : 'Create Account'}
+            </h2>
+            <p className="text-xs text-[#0A192F]/70 font-medium">
+              {isLogin ? 'Login to your OrGo account.' : 'Join OrGo for premium services.'}
+            </p>
+          </div>
+          
+          {message && (
+            <div className="bg-green-50 text-green-700 p-3 rounded-xl text-xs font-bold mb-4 border border-green-100 text-center shrink-0">
+              {message}
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold mb-4 border border-red-100 text-center shrink-0">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} className="space-y-3 shrink-0">
+            {!isLogin && (
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-1 ml-1">Full Name</label>
+                <input 
+                  type="text" 
+                  value={name} 
+                  onChange={e => setName(e.target.value)} 
+                  className="w-full p-3 border border-[#0A192F]/20 rounded-xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                  required
+                />
+              </div>
+            )}
+
+            <div className="flex flex-col">
+              <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-1 ml-1">Email Address</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)} 
+                className="w-full p-3 border border-[#0A192F]/20 rounded-xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                required
+              />
+            </div>
+            
+            <div className="flex flex-col">
+              <div className="flex justify-between items-center mb-1 ml-1">
+                <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider">Password</label>
+                {isLogin && (
+                  <button type="button" onClick={handleForgotPassword} className="text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors">Forgot?</button>
+                )}
+              </div>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                className="w-full p-3 border border-[#0A192F]/20 rounded-xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                required
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading} 
+              className="w-full py-3 bg-red-600 text-white text-sm font-bold rounded-full shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all active:scale-[0.98] border border-transparent disabled:opacity-50 mt-2"
+            >
+              {loading ? 'Processing...' : (isLogin ? 'Login' : 'Create Account')}
+            </button>
+          </form>
+
+          <div className="relative flex items-center justify-center my-5 shrink-0">
+            <div className="absolute w-full h-px bg-[#0A192F]/10"></div>
+            <span className="relative bg-white px-4 text-[10px] font-bold text-[#0A192F]/40 uppercase tracking-widest">Or</span>
+          </div>
+
+          <button 
+            type="button" 
+            onClick={handleGoogleLogin} 
+            disabled={loading} 
+            className="w-full py-3 bg-white border border-[#0A192F]/10 text-[#0A192F] text-sm font-bold rounded-full mb-4 flex items-center justify-center gap-3 shadow-[0_4px_14px_0_rgba(10,25,47,0.05)] hover:shadow-[0_6px_20px_rgba(10,25,47,0.08)] transition-all active:scale-[0.98] disabled:opacity-50 shrink-0"
+          >
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
+            Continue with Google
+          </button>
+
+          <div className="text-center mt-auto pt-2 pb-4 shrink-0">
+            <button 
+              type="button" 
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError(null);
+                setMessage(null);
+              }} 
+              className="text-xs font-bold text-[#0A192F]/60 hover:text-[#0A192F] transition-colors"
+            >
+              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
+            </button>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+};
