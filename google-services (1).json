@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "787837715214",
+    "firebase_url": "https://orgo-e6ff8-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "orgo-e6ff8",
+    "storage_bucket": "orgo-e6ff8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787837715214:android:76b2c422a0686bc7ea4d5f",
+        "android_client_info": {
+          "package_name": "com.orgo.homeservices"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "787837715214-c3eh0npvivoe6uqb8rrrn9vlamu67ki9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.orgo.homeservices",
+            "certificate_hash": "1ac412b53103f8a57114449926edc1b6057de903"
+          }
+        },
+        {
+          "client_id": "787837715214-bh93hp1tsncrd55m1784ta0bub9d8oti.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJ2rwCl7TaIst3jVa7g4U14C70b21z5fk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "787837715214-bh93hp1tsncrd55m1784ta0bub9d8oti.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
