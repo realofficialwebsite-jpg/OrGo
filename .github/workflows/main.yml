@@ -17,16 +17,22 @@ jobs:
       - name: Build Web Assets
         run: npm run build
         
-      - name: Create Android Folder
+      - name: Setup Android Platform
         run: |
-          npx cap add android
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
           npx cap sync android
 
-      - name: Generate Assets
+      - name: Generate Assets (Logo & Splash)
         run: |
           npm install @capacitor/assets
           npx @capacitor/assets generate --android
-          
+
+      - name: Inject Firebase Config
+        run: |
+          mkdir -p android/app
+          cp google-services.json android/app/google-services.json
           
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -39,25 +45,10 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-          ./gradlew signingReport # This is the magic line
-          
+          ./gradlew signingReport
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: OrGo-Mobile-App
           path: android/app/build/outputs/apk/debug/app-debug.apk
-
-
-            - name: Setup Android Platform
-        run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
-          npx cap sync android
-
-      - name: Inject Firebase Config
-        run: |
-          # This ensures the file is copied even if the folder already exists
-          mkdir -p android/app
-          cp google-services.json android/app/google-services.json
