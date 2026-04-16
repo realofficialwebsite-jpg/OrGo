@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "app.vercel.or_go_murex.twa",
-        "sha256_cert_fingerprints": ["D8:DA:B8:05:D3:20:6F:0A:2F:90:AE:11:C6:F1:27:02:61:B2:08:D6:3D:A4:A1:B8:53:08:44:B7:7A:67:8A:81"]
+        "sha256_cert_fingerprints": ["FF:DA:75:F8:31:4E:6B:D5:7F:14:0F:DD:36:DC:C1:A4:69:26:51:50:76:06:01:DC:4E:DC:C9:1E:72:2B:91:CD"]
       }
     }]
