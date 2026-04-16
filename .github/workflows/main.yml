@@ -27,8 +27,9 @@ jobs:
 
       - name: Generate Assets (Logo & Splash)
         run: |
-          npm install @capacitor/assets
+          npm install @capacitor/assets --legacy-peer-deps
           npx @capacitor/assets generate --android
+          
 
       - name: Inject Firebase Config
         run: |
