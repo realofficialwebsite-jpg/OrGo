@@ -44,8 +44,13 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug \
+            -Pandroid.injected.signing.store.file=../Certificates/orgo.jks \
+            -Pandroid.injected.signing.store.password=YOUR_PASSWORD \
+            -Pandroid.injected.signing.key.alias=orgo-key \
+            -Pandroid.injected.signing.key.password=YOUR_PASSWORD
           ./gradlew signingReport
+          
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
