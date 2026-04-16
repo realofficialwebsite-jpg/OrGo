@@ -12,26 +12,23 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../src/firebase';
-import { Lock, Mail, User as UserIcon, AlertCircle, CheckCircle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface AuthProps {
   onLoginSuccess: () => void;
 }
 
-type AuthMode = 'LOGIN' | 'SIGNUP' | 'FORGOT';
-
 export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
-  const [mode, setMode] = useState<AuthMode>('LOGIN');
+  const [step, setStep] = useState<0 | 1 | 2 | 3>(1); // 0: Login, 1: Intro, 2: Profile, 3: Credentials
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [sentEmail, setSentEmail] = useState('');
 
   const handleGoogleLogin = async () => {
     setError(null);
@@ -41,7 +38,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Check if user document exists, if not create it
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
       
@@ -51,6 +47,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               email: user.email || '',
               photo: user.photoURL || '',
               phone: user.phoneNumber || '', 
+              city: '',
               addresses: [],
               createdAt: new Date().toISOString()
           });
@@ -65,112 +62,39 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const [resendLoading, setResendLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    let timer: any;
-    if (cooldown > 0) {
-      timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [cooldown]);
-
-  const handleResendVerification = async () => {
-    if (cooldown > 0) return;
-
-    const targetEmail = email || sentEmail;
-    if (!targetEmail) {
-      setError("Please enter your email address first.");
-      return;
-    }
-    setResendLoading(true);
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password);
-      await sendEmailVerification(userCredential.user);
-      await signOut(auth);
-      setMessage("Verification email resent! Please check your inbox.");
-      setError("");
-      setCooldown(60); // 60 seconds cooldown
-    } catch (err: any) {
-      if (err.code === 'auth/too-many-requests') {
-        setError("Too many requests. Please wait a few minutes before trying again.");
-        setCooldown(60);
-      } else {
-        setError("Failed to resend verification email: " + err.message.replace('Firebase: ', ''));
-      }
-    } finally {
-      setResendLoading(false);
-    }
-  };
-
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
     setLoading(true);
 
     try {
-      if (mode === 'LOGIN') {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-        if (!user.emailVerified) {
-          await signOut(auth);
-          setError("Please verify your email address before logging in. Check your inbox for the verification link.");
-          setLoading(false);
-          return;
-        }
-
-        // Check if user document exists, if not create it (sync legacy users or external auth)
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (!userDoc.exists()) {
-            await setDoc(userDocRef, {
-                name: user.displayName || 'User',
-                email: user.email,
-                photo: user.photoURL || '',
-                phone: '', 
-                addresses: [],
-                createdAt: new Date().toISOString()
-            });
-        }
-
-        onLoginSuccess();
-      } else if (mode === 'SIGNUP') {
-        if (password !== confirmPassword) {
-          throw new Error("Passwords do not match");
-        }
-        const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        
-        // Update Auth Profile
-        await updateProfile(user, {
-            displayName: fullName
-        });
-        
-        // Create Firestore Document
-        await setDoc(doc(db, "users", user.uid), {
-            name: fullName,
-            email: email,
-            photo: '',
-            addresses: [],
-            createdAt: new Date().toISOString()
-        });
-
-        await sendEmailVerification(user);
-        
-        // Sign out after signup to enforce verification
+      if (!user.emailVerified) {
         await signOut(auth);
-        
-        setSentEmail(email);
-        setVerificationSent(true);
-      } else if (mode === 'FORGOT') {
-        await sendPasswordResetEmail(auth, email);
-        setMessage("Password reset email sent! Check your inbox.");
-        setMode('LOGIN');
+        setError("Please verify your email address before logging in.");
+        setLoading(false);
+        return;
       }
+
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+          await setDoc(userDocRef, {
+              name: user.displayName || 'User',
+              email: user.email,
+              photo: user.photoURL || '',
+              phone: '', 
+              city: '',
+              addresses: [],
+              createdAt: new Date().toISOString()
+          });
+      }
+
+      onLoginSuccess();
     } catch (err: any) {
       setError(err.message.replace('Firebase: ', ''));
     } finally {
@@ -178,231 +102,328 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      await updateProfile(user, {
+          displayName: fullName
+      });
+      
+      await setDoc(doc(db, "users", user.uid), {
+          name: fullName,
+          email: email,
+          phone: phone,
+          city: city,
+          photo: '',
+          addresses: [],
+          createdAt: new Date().toISOString()
+      });
+
+      await sendEmailVerification(user);
+      await signOut(auth);
+      
+      setStep(0);
+      setMessage("Account created! Please check your email to verify your account before logging in.");
+    } catch (err: any) {
+      setError(err.message.replace('Firebase: ', ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError("Please enter your email address first.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setMessage("Password reset email sent! Check your inbox.");
+      setError(null);
+    } catch (err: any) {
+      setError(err.message.replace('Firebase: ', ''));
+    }
+  };
+
+  const renderProgressDots = (currentStep: number) => (
+    <div className="flex gap-2 justify-center w-full mb-8 mt-4">
+      {[1, 2, 3].map((s) => (
+        <div 
+          key={s} 
+          className={`h-1.5 rounded-full transition-all duration-300 ${s === currentStep ? 'w-6 bg-red-600' : 'w-1.5 bg-[#0A192F]/20'}`}
+        />
+      ))}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans max-w-md mx-auto">
+    <div className="min-h-screen bg-white flex flex-col items-center p-6 font-sans max-w-md mx-auto relative overflow-hidden">
       <AnimatePresence mode="wait">
-        {verificationSent ? (
+        {step === 1 && (
           <motion.div
-            key="verification"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="w-full text-center"
+            key="step1"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="w-full flex-1 flex flex-col"
           >
-            <div className="w-20 h-20 bg-green-50 text-green-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
-              <CheckCircle size={40} strokeWidth={2.5} />
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 font-display">Verify your email</h2>
-            <p className="text-gray-500 mb-8 leading-relaxed">
-              We've sent a verification link to <br/>
-              <span className="font-bold text-gray-900">{sentEmail}</span>. <br/>
-              Please verify to continue.
-            </p>
-            
-            {message && (
-              <div className="bg-green-50 text-green-700 p-4 rounded-xl mb-6 text-sm font-bold">
-                {message}
-              </div>
-            )}
+            {renderProgressDots(1)}
 
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm font-bold">
-                {error}
+            <div className="w-full flex-1 flex flex-col items-center justify-center">
+              {/* 
+                INSTRUCTIONS FOR ADDING A MANUAL IMAGE:
+                1. Import your local image at the top of the file:
+                   import myCustomGraphic from '../assets/images/my-custom-graphic.png';
+                2. Replace the 'src' attribute in the <img> tag below with {myCustomGraphic}
+              */}
+              <div className="relative w-full aspect-square max-h-72 mb-10 flex items-center justify-center p-4">
+                <img 
+                  src="https://illustrations.popsy.co/amber/location-tracking.svg" 
+                  alt="OrGo Premium Illustration" 
+                  className="w-full h-full object-contain drop-shadow-xl" 
+                />
               </div>
-            )}
-
-            <div className="space-y-4">
-              <button
-                onClick={() => {
-                  setVerificationSent(false);
-                  setMode('LOGIN');
-                  setMessage(null);
-                  setError(null);
-                }}
-                className="btn-primary w-full"
+              <h1 className="text-3xl font-display font-bold text-[#0A192F] mb-3 text-center tracking-tight">Welcome to OrGo</h1>
+              <p className="text-sm text-[#0A192F]/70 mb-12 text-center font-medium">Effortless Organization. Premium Solutions.</p>
+              
+              <button 
+                onClick={() => setStep(2)} 
+                className="w-3/4 py-3.5 bg-white text-[#0A192F] border border-[#0A192F]/10 text-sm font-bold rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all active:scale-[0.98]"
               >
-                Back to Login
+                Get Started
               </button>
               
-              <button
-                onClick={handleResendVerification}
-                disabled={resendLoading || cooldown > 0}
-                className="w-full text-gray-400 py-2 text-sm font-bold hover:text-primary transition-colors disabled:opacity-50"
-              >
-                {resendLoading ? "Sending..." : (cooldown > 0 ? `Resend in ${cooldown}s` : "Didn't get it? Resend Email")}
-              </button>
+              <div className="text-center mt-8">
+                <button onClick={() => setStep(0)} className="text-xs font-bold text-[#0A192F]/60 hover:text-[#0A192F] transition-colors">
+                  Already have an account? Login
+                </button>
+              </div>
             </div>
           </motion.div>
-        ) : (
+        )}
+
+        {step === 2 && (
           <motion.div
-            key="auth-form"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="w-full"
+            key="step2"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="w-full flex-1 flex flex-col"
           >
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-2xl mb-6">
-                <Sparkles size={32} strokeWidth={2.5} />
-              </div>
-              <h1 className="text-4xl font-bold text-gray-900 tracking-tight font-display mb-2">OrGo</h1>
-              <p className="text-gray-500 font-medium">Professional Home Services</p>
+            {renderProgressDots(2)}
+
+            <div className="w-full h-40 mb-8 flex items-center justify-center p-2">
+              <img 
+                src="https://illustrations.popsy.co/amber/graphic-design.svg" 
+                alt="Setup Profile" 
+                className="w-full h-full object-contain drop-shadow-md" 
+              />
             </div>
 
-            <div className="space-y-8">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-gray-900 font-display">
-                  {mode === 'LOGIN' && 'Welcome back'}
-                  {mode === 'SIGNUP' && 'Create account'}
-                  {mode === 'FORGOT' && 'Reset password'}
-                </h2>
-                <p className="text-sm text-gray-500">
-                  {mode === 'LOGIN' && 'Sign in to access your bookings'}
-                  {mode === 'SIGNUP' && 'Join us for premium home services'}
-                  {mode === 'FORGOT' && 'Enter your email to get a reset link'}
-                </p>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-start gap-3 text-sm border border-red-100">
-                  <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold mb-1">Error</p>
-                    <p className="font-medium opacity-90">{error}</p>
-                    {error.includes("verify your email") && (
-                      <button
-                        onClick={handleResendVerification}
-                        disabled={resendLoading || cooldown > 0}
-                        className="mt-2 text-xs font-bold underline decoration-2 underline-offset-2"
-                      >
-                        {resendLoading ? "Sending..." : (cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email")}
-                      </button>
-                    )}
-                  </div>
+            <div className="w-full flex-1 flex flex-col">
+              <h2 className="text-2xl font-display font-bold text-[#0A192F] mb-8 tracking-tight text-center">Setup Your Profile</h2>
+              
+              <div className="space-y-5 mb-10">
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-2 ml-1">First Name</label>
+                  <input 
+                    type="text" 
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    className="w-full p-3.5 border border-[#0A192F]/20 rounded-2xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                  />
                 </div>
-              )}
-
-              {message && (
-                <div className="bg-green-50 text-green-700 p-4 rounded-xl flex items-center gap-3 text-sm border border-green-100">
-                  <CheckCircle size={18} className="shrink-0" />
-                  <span className="font-bold">{message}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleAuth} className="space-y-5">
-                {mode === 'SIGNUP' && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Full Name</label>
-                    <div className="relative group">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
-                      <input
-                        type="text"
-                        placeholder="John Doe"
-                        className="input-field pl-11"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        required
-                      />
+                
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-2 ml-1">Phone Number</label>
+                  <div className="flex border border-[#0A192F]/20 rounded-2xl overflow-hidden focus-within:border-red-600 focus-within:ring-1 focus-within:ring-red-600 bg-transparent transition-all">
+                    <div className="flex items-center gap-2 px-4 bg-[#0A192F]/[0.02] border-r border-[#0A192F]/10">
+                      <span className="text-base">🇮🇳</span>
+                      <span className="text-sm font-bold text-[#0A192F]">+91</span>
                     </div>
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Email Address</label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
-                    <input
-                      type="email"
-                      placeholder="Enter your email"
-                      className="input-field pl-11"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
+                    <input 
+                      type="tel" 
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      className="w-full p-3.5 text-sm text-[#0A192F] outline-none bg-transparent" 
                     />
                   </div>
                 </div>
 
-                {(mode === 'LOGIN' || mode === 'SIGNUP') && (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center ml-1">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Password</label>
-                      {mode === 'LOGIN' && (
-                        <button type="button" onClick={() => setMode('FORGOT')} className="text-[10px] font-bold text-primary uppercase tracking-wider hover:underline">Forgot?</button>
-                      )}
-                    </div>
-                    <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
-                      <input
-                        type="password"
-                        placeholder=""
-                        className="input-field pl-11"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-2 ml-1">City</label>
+                  <input 
+                    type="text" 
+                    value={city}
+                    onChange={e => setCity(e.target.value)}
+                    className="w-full p-3.5 border border-[#0A192F]/20 rounded-2xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                  />
+                </div>
+              </div>
 
-                {mode === 'SIGNUP' && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Confirm Password</label>
-                    <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={18} />
-                      <input
-                        type="password"
-                        placeholder="••••••••"
-                        className="input-field pl-11"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
+              {error && <p className="text-xs text-red-600 text-center mb-4 font-medium">{error}</p>}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary w-full mt-4"
+              <button 
+                onClick={() => {
+                  if (!fullName || !phone || !city) {
+                    setError("Please fill in all fields.");
+                    return;
+                  }
+                  setError(null);
+                  setStep(3);
+                }} 
+                className="w-full py-3.5 bg-[#0A192F] text-white text-sm font-bold rounded-full shadow-lg shadow-red-600/10 hover:bg-[#0A192F]/90 transition-all active:scale-[0.98] border border-transparent hover:border-red-600/30"
+              >
+                Create Profile
+              </button>
+
+              <div className="text-center mt-auto pt-6">
+                <button onClick={() => setStep(0)} className="text-xs font-bold text-[#0A192F]/60 hover:text-[#0A192F] transition-colors">
+                  Already have an account? Login
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {step === 3 && (
+          <motion.div
+            key="step3"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="w-full flex-1 flex flex-col"
+          >
+            {renderProgressDots(3)}
+
+            <div className="w-full flex-1 flex flex-col">
+              <h2 className="text-2xl font-display font-bold text-[#0A192F] mb-3 tracking-tight text-center">Secure Your Account</h2>
+              <p className="text-sm text-[#0A192F]/70 mb-10 text-center font-medium">Enter your email and create a password.</p>
+              
+              <form onSubmit={handleSignup} className="space-y-5 mb-10">
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-2 ml-1">Email Address</label>
+                  <input 
+                    type="email" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                    className="w-full p-3.5 border border-[#0A192F]/20 rounded-2xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                    required
+                  />
+                </div>
+                
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-2 ml-1">Password</label>
+                  <input 
+                    type="password" 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    className="w-full p-3.5 border border-[#0A192F]/20 rounded-2xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                    required
+                  />
+                </div>
+
+                {error && <p className="text-xs text-red-600 font-medium text-center">{error}</p>}
+
+                <button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="w-full py-3.5 bg-[#0A192F] text-white text-sm font-bold rounded-full shadow-lg shadow-red-600/10 hover:bg-[#0A192F]/90 transition-all active:scale-[0.98] border border-transparent hover:border-red-600/30 disabled:opacity-50 mt-4"
                 >
-                  {loading ? 'Processing...' : (
-                    mode === 'LOGIN' ? 'Sign In' : 
-                    mode === 'SIGNUP' ? 'Create Account' : 'Reset Password'
-                  )}
+                  {loading ? 'Processing...' : 'Submit'}
                 </button>
               </form>
 
-              <div className="pt-4">
-                <div className="relative flex items-center justify-center mb-8">
-                  <div className="absolute w-full h-px bg-gray-100"></div>
-                  <span className="relative bg-white px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Or continue with</span>
-                </div>
-
-                <button 
-                  type="button" 
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  className="w-full bg-white border border-gray-200 py-3.5 rounded-xl flex items-center justify-center gap-3 text-gray-700 font-bold hover:bg-gray-50 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
-                >
-                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-                    Google Account
+              <div className="text-center mt-auto pt-6">
+                <button type="button" onClick={() => setStep(2)} className="text-xs font-bold text-[#0A192F]/60 hover:text-[#0A192F] transition-colors">
+                  Back to Profile Setup
                 </button>
               </div>
+            </div>
+          </motion.div>
+        )}
 
-              <div className="text-center">
-                {mode === 'LOGIN' ? (
-                  <p className="text-gray-500 font-medium text-sm">
-                    New to OrGo?{' '}
-                    <button onClick={() => setMode('SIGNUP')} className="text-primary font-bold hover:underline">Create Account</button>
-                  </p>
-                ) : (
-                  <p className="text-gray-500 font-medium text-sm">
-                    Already have an account?{' '}
-                    <button onClick={() => setMode('LOGIN')} className="text-primary font-bold hover:underline">Sign In</button>
-                  </p>
-                )}
+        {step === 0 && (
+          <motion.div
+            key="step0"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="w-full flex-1 flex flex-col justify-center"
+          >
+            <div className="mb-12 text-center">
+              <h2 className="text-3xl font-display font-bold text-[#0A192F] mb-3 tracking-tight">Welcome Back</h2>
+              <p className="text-sm text-[#0A192F]/70 font-medium">Login to your OrGo account.</p>
+            </div>
+            
+            {message && (
+              <div className="bg-green-50 text-green-700 p-3.5 rounded-2xl text-xs font-bold mb-8 border border-green-100 text-center">
+                {message}
               </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-5 mb-8">
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider mb-2 ml-1">Email Address</label>
+                <input 
+                  type="email" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  className="w-full p-3.5 border border-[#0A192F]/20 rounded-2xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                  required
+                />
+              </div>
+              
+              <div className="flex flex-col">
+                <div className="flex justify-between items-center mb-2 ml-1">
+                  <label className="text-[10px] font-bold text-[#0A192F] uppercase tracking-wider">Password</label>
+                  <button type="button" onClick={handleForgotPassword} className="text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors">Forgot?</button>
+                </div>
+                <input 
+                  type="password" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  className="w-full p-3.5 border border-[#0A192F]/20 rounded-2xl text-sm text-[#0A192F] outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 bg-transparent transition-all" 
+                  required
+                />
+              </div>
+
+              {error && <p className="text-xs text-red-600 font-medium text-center">{error}</p>}
+
+              <button 
+                type="submit" 
+                disabled={loading} 
+                className="w-full py-3.5 bg-[#0A192F] text-white text-sm font-bold rounded-full shadow-lg shadow-red-600/10 hover:bg-[#0A192F]/90 transition-all active:scale-[0.98] border border-transparent hover:border-red-600/30 disabled:opacity-50 mt-4"
+              >
+                {loading ? 'Processing...' : 'Login'}
+              </button>
+            </form>
+
+            <div className="relative flex items-center justify-center mb-8">
+              <div className="absolute w-full h-px bg-[#0A192F]/10"></div>
+              <span className="relative bg-white px-4 text-[10px] font-bold text-[#0A192F]/40 uppercase tracking-widest">Or</span>
+            </div>
+
+            <button 
+              type="button" 
+              onClick={handleGoogleLogin} 
+              disabled={loading} 
+              className="w-full py-3.5 bg-white border border-[#0A192F]/10 text-[#0A192F] text-sm font-bold rounded-full mb-10 flex items-center justify-center gap-3 shadow-[0_4px_14px_0_rgba(10,25,47,0.05)] hover:shadow-[0_6px_20px_rgba(10,25,47,0.08)] transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
+              Continue with Google
+            </button>
+
+            <div className="text-center mt-auto">
+              <button type="button" onClick={() => setStep(1)} className="text-xs font-bold text-[#0A192F]/60 hover:text-[#0A192F] transition-colors">
+                Don't have an account? Sign up
+              </button>
             </div>
           </motion.div>
         )}
