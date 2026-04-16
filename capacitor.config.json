@@ -1,5 +1,12 @@
 {
   "appId": "com.orgo.homeservices",
   "appName": "OrGo",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "787837715214-bh93hp1tsncrd55m1784ta0bub9d8oti.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
+    }
+  }
 }
