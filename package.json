@@ -27,7 +27,10 @@
     "@capacitor/core": "latest",
 "@capacitor/android": "latest",
 "@capacitor/cli": "latest",
-"@codetrix-studio/capacitor-google-auth": "^3.3.0"
+"@codetrix-studio/capacitor-google-auth": "^3.3.0",
+"@capacitor/camera": "latest",
+"@capacitor/geolocation": "latest"
+    
     
   },
   "devDependencies": {
