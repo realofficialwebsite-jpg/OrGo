@@ -23,7 +23,7 @@
     "react-leaflet": "^4.2.1",
     "recharts": "^2.12.0",
     "sonner": "^2.0.7",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.2.1",
     "@capacitor/core": "latest",
 "@capacitor/android": "latest",
 "@capacitor/cli": "latest"
