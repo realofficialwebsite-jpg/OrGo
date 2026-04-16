@@ -565,7 +565,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">₹{order.grandTotal}</p>
-                    <span className="px-2 py-1 bg-red-50 text-red-600 rounded-lg text-[8px] font-bold uppercase tracking-wider">In Progress</span>
+                    <span className="px-2 py-1 bg-red-50 text-red-600 rounded-lg text-[8px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 min-w-max">In Progress</span>
                   </div>
                 </div>
 
@@ -684,7 +684,7 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
               <div className="text-right">
                 <p className="font-bold text-gray-900 text-lg mb-1">₹{order.grandTotal}</p>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider ${order.status === 'completed' ? 'bg-red-50 text-red-600' : 'bg-red-50 text-red-600'}`}>
+                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider whitespace-nowrap shrink-0 min-w-max ${order.status === 'completed' ? 'bg-red-50 text-red-600' : 'bg-red-50 text-red-600'}`}>
                     {order.status}
                   </span>
                   {order.isRated && (

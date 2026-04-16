@@ -1466,7 +1466,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   </h3>
                   <p className="text-xs text-gray-400 font-bold">{order.scheduledDate} • {order.scheduledTime}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${(order.status === 'searching' || order.status === 'assigned') ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500'}`}>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap shrink-0 min-w-max ${(order.status === 'searching' || order.status === 'assigned') ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500'}`}>
                   {order.status}
                 </span>
               </div>
