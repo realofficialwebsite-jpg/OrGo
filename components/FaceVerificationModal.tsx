@@ -180,7 +180,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({
           </p>
           <button
             onClick={() => {
-              onSuccess(); // Close the modal
+              onClose(); // Close the modal without forcing online
             }}
             className="w-full py-4 bg-black text-white font-bold rounded-xl text-lg active:scale-95 transition-all"
           >

@@ -82,14 +82,25 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   const [showFaceVerification, setShowFaceVerification] = useState(false);
 
   useEffect(() => {
-    if (profile.dailySecurityStatus === 'approved' && !isOnline) {
-      setIsOnline(true);
-      updateDoc(doc(db, 'users', user.uid), { 
-        isOnline: true, 
-        status: 'online' 
-      }).catch(console.error);
-    }
-  }, [profile.dailySecurityStatus]);
+    if (!user) return;
+    const unsubUser = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        if (userData.dailySecurityStatus === 'pending') {
+          setIsOnline(false); // Force them offline while waiting
+        } else if (userData.dailySecurityStatus === 'approved') {
+          setIsOnline(true); // Auto-connect them once Admin approves
+          // Reset status back to idle after going online so they have to verify again tomorrow
+          updateDoc(doc(db, 'users', user.uid), { 
+            isOnline: true, 
+            status: 'online',
+            dailySecurityStatus: 'idle'
+          }).catch(console.error);
+        }
+      }
+    });
+    return () => unsubUser();
+  }, [user]);
 
   useEffect(() => {
     if (requests.length > 0 && activeTab !== WorkerTab.REQUESTS) {
