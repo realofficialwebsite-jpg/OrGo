@@ -40,16 +40,23 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           
-      - name: Build Final APK
+       - name: Build Final APK
         run: |
           cd android
           chmod +x gradlew
+          # We use -P for both commands to ensure they see the same keys
           ./gradlew assembleDebug \
             -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/certificates/orgo.jks \
             -Pandroid.injected.signing.store.password=123 \
             -Pandroid.injected.signing.key.alias=orgo-key \
             -Pandroid.injected.signing.key.password=123
-          ./gradlew signingReport
+          
+          ./gradlew signingReport \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/certificates/orgo.jks \
+            -Pandroid.injected.signing.store.password=123 \
+            -Pandroid.injected.signing.key.alias=orgo-key \
+            -Pandroid.injected.signing.key.password=123
+            
           
           
           
