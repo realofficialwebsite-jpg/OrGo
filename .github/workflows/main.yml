@@ -21,6 +21,12 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+
+      - name: Generate Assets
+        run: |
+          npm install @capacitor/assets
+          npx @capacitor/assets generate --android
+          
           
       - name: Setup Java
         uses: actions/setup-java@v4
