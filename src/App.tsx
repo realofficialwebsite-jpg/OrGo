@@ -8,7 +8,8 @@ import { Tracking } from '../components/Tracking';
 import { Account } from '../components/Account';
 import { Cart } from '../components/Cart';
 import { Checkout } from '../components/Checkout';
-import { NotificationHandler } from './components/NotificationHandler';
+// TEMPORARILY DISABLED TO PREVENT MOBILE CRASH
+// import { NotificationHandler } from './components/NotificationHandler';
 import { Category, SubCategory, ServiceItem, CartItem, AppView, Booking, UserProfile } from './types';
 import { APP_CATEGORIES } from './constants';
 import { useCart } from './CartContext';
@@ -755,7 +756,8 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto relative shadow-2xl">
-      <NotificationHandler />
+      {/* TEMPORARILY DISABLED TO PREVENT MOBILE CRASH */}
+      {/* <NotificationHandler /> */}
       <AnimatePresence mode="wait">
         {activeMode === 'worker' && profile?.role === 'professional' ? (
           <WorkerApp 
