@@ -524,7 +524,7 @@ export const Account: React.FC<AccountProps> = ({ user, onLogout, navigate, onUp
         <div className="relative inline-block mb-4">
           <div className="w-24 h-24 bg-primary/10 rounded-[32px] flex items-center justify-center text-primary border-4 border-white shadow-xl overflow-hidden">
             {profile.photo ? (
-              <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover" />
+              <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <UserIcon size={40} />
             )}
