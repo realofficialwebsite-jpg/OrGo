@@ -39,7 +39,12 @@ jobs:
         run: |
           mkdir -p android/app/src/main/res/values
           echo '<?xml version="1.0" encoding="utf-8"?><resources><string name="server_client_id">787837715214-bh93hp1tsncrd55m1784ta0bub9d8oti.apps.googleusercontent.com</string></resources>' > android/app/src/main/res/values/google_auth.xml
-      
+
+          
+      - name: Inject Location Permissions
+        run: |
+          sed -i 's/<application/<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" \/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" \/>\n    <application/g' android/app/src/main/AndroidManifest.xml
+          
       
       - name: Setup Java
         uses: actions/setup-java@v4
