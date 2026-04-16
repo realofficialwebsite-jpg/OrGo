@@ -1,15 +1,24 @@
 {
-  "name": "Orgo Home Services",
-  "short_name": "Orgo",
+  "name": "OrGo Home Services",
+  "short_name": "OrGo",
+  "description": "Premium on-demand organizing and home services.",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "theme_color": "#ffffff",
   "icons": [
     {
-      "src": "/vite.svg",
+      "src": "/icon.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "gcm_sender_id": "103953800507"
