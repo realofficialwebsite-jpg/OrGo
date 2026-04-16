@@ -58,6 +58,7 @@ enum WorkerTab {
 }
 
 export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMode, onLogout, fetchProfile }) => {
+  const alarmAudio = React.useRef<HTMLAudioElement | null>(null);
   const [activeTab, setActiveTab] = useState<WorkerTab>(WorkerTab.REQUESTS);
   const [isOnline, setIsOnline] = useState(profile.isOnline || false);
   const [requests, setRequests] = useState<Booking[]>([]);
@@ -80,6 +81,18 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   const [isEditingAvailability, setIsEditingAvailability] = useState(false);
   const [editProfileData, setEditProfileData] = useState({ name: profile.name, email: profile.email, photo: profile.photo || '' });
   const [showFaceVerification, setShowFaceVerification] = useState(false);
+
+  useEffect(() => {
+    if (!alarmAudio.current) {
+      alarmAudio.current = new Audio('/notification.mp3');
+      alarmAudio.current.loop = true;
+    }
+    return () => {
+      if (alarmAudio.current) {
+        alarmAudio.current.pause();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -276,6 +289,9 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
             onClick: () => setActiveTab(WorkerTab.REQUESTS)
           }
         });
+        if (alarmAudio.current) {
+          alarmAudio.current.play().catch(err => console.log('Browser blocked autoplay', err));
+        }
       }
       
       setRequests(filtered);
@@ -354,6 +370,10 @@ export const WorkerApp: React.FC<WorkerAppProps> = ({ user, profile, onSwitchMod
   };
 
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
+    if (alarmAudio.current) {
+      alarmAudio.current.pause();
+      alarmAudio.current.currentTime = 0;
+    }
     if (!orderId) return;
     try {
       const orderRef = doc(db, 'order', orderId);
