@@ -67,7 +67,12 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       onLoginSuccess();
     } catch (err: any) {
       console.error("Google Login Error:", err);
-      setError(err.message || "Google Sign-in failed");
+      
+      // THIS IS THE TRICK: Force a popup on the phone with the real error details
+      const errorDetail = err.message || JSON.stringify(err);
+      alert("FIREBASE ERROR: " + errorDetail);
+      
+      setError(errorDetail);
     } finally {
       setLoading(false);
     }
