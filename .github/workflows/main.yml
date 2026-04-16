@@ -45,7 +45,10 @@ jobs:
         run: |
           sed -i 's/<application/<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" \/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" \/>\n    <application/g' android/app/src/main/AndroidManifest.xml
           
-      
+      - name: Inject Hardware Permissions
+        run: |
+          sed -i 's/<application/<uses-permission android:name="android.permission.CAMERA" \/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" \/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" \/>\n    <application/g' android/app/src/main/AndroidManifest.xml
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
