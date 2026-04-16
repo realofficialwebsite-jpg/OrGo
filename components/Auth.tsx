@@ -7,12 +7,14 @@ import {
   updateProfile,
   signOut,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithCredential
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../src/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { HardHat, User, Wrench, Hammer, Home, UserPlus, Sparkles } from 'lucide-react';
+// Import the native Capacitor Google Auth plugin
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 interface AuthProps {
   onLoginSuccess: () => void;
@@ -32,10 +34,21 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     setError(null);
     setLoading(true);
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
+      // 1. Trigger the Native Android Account Picker
+      const googleUser = await GoogleAuth.signIn();
+      
+      if (!googleUser || !googleUser.authentication || !googleUser.authentication.idToken) {
+        throw new Error("Google Sign-In failed or was cancelled.");
+      }
+
+      // 2. Create the Firebase Credential using the Native Token
+      const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+      
+      // 3. Sign into Firebase safely inside the app
+      const result = await signInWithCredential(auth, credential);
       const user = result.user;
 
+      // 4. Save to Firestore
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
       
@@ -54,7 +67,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       onLoginSuccess();
     } catch (err: any) {
       console.error("Google Login Error:", err);
-      setError(err.message.replace('Firebase: ', ''));
+      setError(err.message || "Google Sign-in failed");
     } finally {
       setLoading(false);
     }
