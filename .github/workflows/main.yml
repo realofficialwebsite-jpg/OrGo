@@ -49,13 +49,15 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
 
-      - name: Create Android Folder
+            - name: Setup Android Platform
         run: |
-          npx cap add android
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
           npx cap sync android
 
       - name: Inject Firebase Config
-        run: cp google-services.json android/app/google-services.json # ADD THIS LINE HERE
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
+        run: |
+          # This ensures the file is copied even if the folder already exists
+          mkdir -p android/app
+          cp google-services.json android/app/google-services.json
