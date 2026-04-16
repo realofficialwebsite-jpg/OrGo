@@ -39,6 +39,8 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+          ./gradlew signingReport # This is the magic line
+          
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
