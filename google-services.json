@@ -15,11 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "787837715214-c3eh0npvivoe6uqb8rrrn9vlamu67ki9.apps.googleusercontent.com",
+          "client_id": "787837715214-t6h8bageu7nhsg761svgu43025eqklal.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.orgo.homeservices",
-            "certificate_hash": "1ac412b53103f8a57114449926edc1b6057de903"
+            "certificate_hash": "227633721b6768a09048a300ac9622025584f9f5"
           }
         },
         {
