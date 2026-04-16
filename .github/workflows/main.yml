@@ -42,16 +42,13 @@ jobs:
           
       - name: Build Final APK
         run: |
-          # Verify the file exists first (for debugging)
-          ls -R Certificates/
-          
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug \
-            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/Certificates/orgo.jks \
-            -Pandroid.injected.signing.store.password=YOUR_PASSWORD \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/certificates/orgo.jks \
+            -Pandroid.injected.signing.store.password=123 \
             -Pandroid.injected.signing.key.alias=orgo-key \
-            -Pandroid.injected.signing.key.password=YOUR_PASSWORD
+            -Pandroid.injected.signing.key.password=123
           ./gradlew signingReport
           
           
