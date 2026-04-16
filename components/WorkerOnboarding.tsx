@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Camera as CameraIcon, CheckCircle, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, Camera as CameraIcon, CheckCircle } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../src/firebase';
 import { orgoServices } from '../src/servicesData';
+import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
-// IMPORT THE OFFICIAL CAPACITOR PLUGIN
-import { Camera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
+// IMPORT THE OFFICIAL CAPACITOR PLUGIN (THE TROJAN HORSE)
+import { Camera } from '@capacitor/camera';
 
 interface OnboardingState {
   fullName: string;
@@ -62,30 +63,295 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  // Native Camera Capture for Step 5
-  const handleNativeCameraCapture = async () => {
-    setError('');
-    try {
-      await Camera.requestPermissions();
-      
-      const image = await Camera.getPhoto({
-        quality: 80,
-        allowEditing: false,
-        resultType: CameraResultType.Base64,
-        source: CameraSource.Camera,
-        direction: CameraDirection.Front // Force selfie camera
-      });
+  // Camera & Mediapipe State
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cameraActive, setCameraActiveState] = useState(false);
+  const cameraActiveRef = useRef(false);
+  const setCameraActive = (active: boolean) => {
+    cameraActiveRef.current = active;
+    setCameraActiveState(active);
+  };
 
-      if (image.base64String) {
-        const capturedBase64 = `data:image/jpeg;base64,${image.base64String}`;
-        updateForm('faceScanBase64', capturedBase64);
+  const [livenessInstruction, setLivenessInstruction] = useState('Loading Face Scanner...');
+  const [livenessStage, setLivenessStageState] = useState<'loading' | 'position' | 'blink' | 'turn' | 'success' | 'failed'>('loading');
+  const livenessStageRef = useRef<'loading' | 'position' | 'blink' | 'turn' | 'success' | 'failed'>('loading');
+  const instructionStepRef = useRef<'face-detect' | 'blink' | 'turn-left' | 'turn-right' | 'look-down' | 'look-up' | 'success'>('face-detect');
+  const isTransitioningRef = useRef(false);
+  
+  const setLivenessStage = (stage: 'loading' | 'position' | 'blink' | 'turn' | 'success' | 'failed') => {
+    livenessStageRef.current = stage;
+    setLivenessStageState(stage);
+    
+    // Sync instructionStepRef with stage
+    if (stage === 'position') instructionStepRef.current = 'face-detect';
+    if (stage === 'success') instructionStepRef.current = 'success';
+  };
+
+  const moveToNextStep = (nextStep: typeof instructionStepRef.current, instruction: string) => {
+    isTransitioningRef.current = true;
+    setLivenessInstruction(instruction);
+    setTimeout(() => {
+      instructionStepRef.current = nextStep;
+      isTransitioningRef.current = false;
+    }, 1000);
+  };
+
+  const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
+  const [isAILoading, setIsAILoading] = useState(false);
+  const requestRef = useRef<number>();
+  const lastVideoTimeRef = useRef<number>(-1);
+  
+  // Tracking variables for liveness
+  const blinkCountRef = useRef(0);
+  const isEyeClosedRef = useRef(false);
+  const requiredTurnsRef = useRef(new Set(['left', 'right', 'up', 'down']));
+
+  useEffect(() => {
+    if (appStatus === 'pending') return;
+    if (step !== 5) return;
+    if (faceLandmarkerRef.current) return;
+
+    const initMediapipe = async () => {
+      setIsAILoading(true);
+      console.log("Starting MediaPipe initialization...");
+      try {
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+        );
+        console.log("FilesetResolver loaded.");
+        
+        const landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            delegate: "CPU"
+          },
+          outputFaceBlendshapes: true,
+          runningMode: "VIDEO",
+          numFaces: 1
+        });
+        
+        faceLandmarkerRef.current = landmarker;
+        setIsAILoading(false);
+        console.clear();
+        console.log("MediaPipe FaceLandmarker initialized successfully.");
+        
+        if (step === 5 && !formData.faceScanBase64 && livenessStageRef.current !== 'success') {
+          startCamera();
+        }
+      } catch (err: any) {
+        console.error("MediaPipe Initialization Error:", err);
+        setError("Camera AI failed to load. Please check permissions.");
+        setLivenessStage('failed');
+        setIsAILoading(false);
+      }
+    };
+    initMediapipe();
+  }, [appStatus, step]);
+
+  useEffect(() => {
+    if (step === 5 && !formData.faceScanBase64 && livenessStage !== 'success') {
+      if (faceLandmarkerRef.current && !isAILoading) {
+        startCamera();
+      }
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+  }, [step, formData.faceScanBase64, isAILoading]);
+
+  const startCamera = async () => {
+    setError('');
+    setLivenessStage('position');
+    setLivenessInstruction('Place head inside the circle');
+    blinkCountRef.current = 0;
+    isEyeClosedRef.current = false;
+    requiredTurnsRef.current = new Set(['left', 'right', 'up', 'down']);
+
+    try {
+      // 1. THE TROJAN HORSE: Force Android to grant Native Camera access first
+      await Camera.requestPermissions();
+
+      // 2. Now start the web stream for the AI
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 480, facingMode: 'user' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setCameraActive(true);
+        if (videoRef.current.readyState >= 2) {
+          predictWebcam();
+        }
       }
     } catch (err: any) {
-      console.error('Camera Error:', err);
-      if (err.message !== 'User cancelled photos app') {
-        setError(err.message || 'Failed to open native camera.');
+      console.error("Error accessing camera:", err instanceof Error ? err.message : String(err));
+      setError(err.message || "Camera access denied. Please enable in App Settings.");
+      setLivenessStage('failed');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      setCameraActive(false);
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    }
+  };
+
+  const calculateEAR = (landmarks: any[], indices: number[]) => {
+    const p1 = landmarks[indices[0]];
+    const p2 = landmarks[indices[1]];
+    const p3 = landmarks[indices[2]];
+    const p4 = landmarks[indices[3]];
+    const p5 = landmarks[indices[4]];
+    const p6 = landmarks[indices[5]];
+
+    const dist = (pA: any, pB: any) => Math.hypot(pA.x - pB.x, pA.y - pB.y);
+
+    const v1 = dist(p2, p6);
+    const v2 = dist(p3, p5);
+    const h = dist(p1, p4);
+
+    return (v1 + v2) / (2.0 * h);
+  };
+
+  const predictWebcam = () => {
+    if (!videoRef.current || !faceLandmarkerRef.current || !cameraActiveRef.current) {
+      if (cameraActiveRef.current) {
+        requestRef.current = requestAnimationFrame(predictWebcam);
+      }
+      return;
+    }
+
+    const video = videoRef.current;
+    
+    if (video.readyState < 2 || video.videoWidth === 0) {
+      requestRef.current = requestAnimationFrame(predictWebcam);
+      return;
+    }
+
+    if (isTransitioningRef.current) {
+      requestRef.current = requestAnimationFrame(predictWebcam);
+      return;
+    }
+
+    let startTimeMs = performance.now();
+    
+    if (lastVideoTimeRef.current !== video.currentTime) {
+      lastVideoTimeRef.current = video.currentTime;
+      
+      try {
+        const results = faceLandmarkerRef.current.detectForVideo(video, startTimeMs);
+        
+        if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+          const landmarks = results.faceLandmarks[0];
+          
+          if (instructionStepRef.current === 'face-detect') {
+            moveToNextStep('blink', 'Please Blink');
+          }
+          else if (instructionStepRef.current === 'blink') {
+            const leftEyeIndices = [33, 160, 158, 133, 153, 144];
+            const rightEyeIndices = [362, 385, 387, 263, 373, 380];
+            
+            const leftEAR = calculateEAR(landmarks, leftEyeIndices);
+            const rightEAR = calculateEAR(landmarks, rightEyeIndices);
+            const avgEAR = (leftEAR + rightEAR) / 2.0;
+
+            if (avgEAR < 0.2) {
+              isEyeClosedRef.current = true;
+            } else if (avgEAR > 0.25 && isEyeClosedRef.current) {
+              isEyeClosedRef.current = false;
+              moveToNextStep('turn-left', 'Turn Head Left');
+            }
+          }
+          else if (instructionStepRef.current === 'turn-left') {
+            const noseTip = landmarks[1];
+            const leftTragion = landmarks[234];
+            const rightTragion = landmarks[454];
+            const faceWidth = Math.abs(rightTragion.x - leftTragion.x);
+            const noseToRight = Math.abs(noseTip.x - rightTragion.x);
+            
+            if (noseToRight / faceWidth < 0.3) {
+              moveToNextStep('turn-right', 'Turn Head Right');
+            }
+          }
+          else if (instructionStepRef.current === 'turn-right') {
+            const noseTip = landmarks[1];
+            const leftTragion = landmarks[234];
+            const rightTragion = landmarks[454];
+            const faceWidth = Math.abs(rightTragion.x - leftTragion.x);
+            const noseToLeft = Math.abs(noseTip.x - leftTragion.x);
+            
+            if (noseToLeft / faceWidth < 0.3) {
+              moveToNextStep('look-down', 'Look Down');
+            }
+          }
+          else if (instructionStepRef.current === 'look-down') {
+            const noseTip = landmarks[1];
+            const chin = landmarks[152];
+            const forehead = landmarks[10];
+            const faceHeight = Math.abs(chin.y - forehead.y);
+            const noseToChin = Math.abs(noseTip.y - chin.y);
+            
+            if (noseToChin / faceHeight < 0.35) {
+              moveToNextStep('look-up', 'Look Up');
+            }
+          }
+          else if (instructionStepRef.current === 'look-up') {
+            const noseTip = landmarks[1];
+            const chin = landmarks[152];
+            const forehead = landmarks[10];
+            const faceHeight = Math.abs(chin.y - forehead.y);
+            const noseToForehead = Math.abs(noseTip.y - forehead.y);
+            
+            if (noseToForehead / faceHeight < 0.35) {
+              instructionStepRef.current = 'success';
+              captureFrame();
+            }
+          }
+        } else {
+          if (livenessStageRef.current !== 'loading' && livenessStageRef.current !== 'failed' && livenessStageRef.current !== 'success') {
+            setLivenessInstruction('Face not detected. Place head inside the circle.');
+          }
+        }
+      } catch (err) {
+        console.error("Detection error:", err);
       }
     }
+
+    if (livenessStageRef.current !== 'success' && livenessStageRef.current !== 'failed') {
+      requestRef.current = requestAnimationFrame(predictWebcam);
+    }
+  };
+
+  const captureFrame = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.translate(size, 0);
+        ctx.scale(-1, 1);
+        
+        const startX = (video.videoWidth - size) / 2;
+        const startY = (video.videoHeight - size) / 2;
+        
+        ctx.drawImage(video, startX, startY, size, size, 0, 0, size, size);
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        updateForm('faceScanBase64', base64);
+        setLivenessStage('success');
+        setLivenessInstruction('Verification Successful');
+        stopCamera();
+      }
+    }
+  };
+
+  const handleRetake = () => {
+    updateForm('faceScanBase64', '');
+    setLivenessStage('position');
+    startCamera();
   };
 
   const updateForm = (field: keyof OnboardingState, value: any) => {
@@ -200,7 +466,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
           </button>
         </div>
 
-        {/* Custom Confirmation Modal */}
         <AnimatePresence>
           {showCancelConfirm && (
             <motion.div 
@@ -242,7 +507,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col overflow-hidden font-sans">
       <div className="flex-1 overflow-y-auto">
-        {/* Sticky Header */}
         <div className="sticky top-0 z-50 bg-white pb-4 pt-4 px-4 flex items-center justify-between border-b border-gray-100">
           <button 
             onClick={handleBack}
@@ -253,7 +517,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
           <span className="text-sm font-bold text-gray-400 tracking-widest">{step}/5</span>
         </div>
 
-        {/* Main Content Area */}
         <div className="pt-4 pb-32 px-4">
           <div className="max-w-md mx-auto w-full">
             <AnimatePresence mode="wait">
@@ -264,7 +527,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
               >
-              {/* STEP 1: Basics */}
               {step === 1 && (
                 <div className="space-y-8 mt-4">
                   <div>
@@ -313,7 +575,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
                 </div>
               )}
 
-              {/* STEP 2: Professional Profile */}
               {step === 2 && (
                 <div className="space-y-8 mt-4">
                   <div>
@@ -322,7 +583,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
                   </div>
 
                   <div className="space-y-8">
-                    {/* Profile Photo */}
                     <div>
                       <label className="block text-sm font-bold text-gray-900 mb-4">Profile Photo</label>
                       <div className="flex items-center gap-6">
@@ -354,7 +614,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
                       </div>
                     </div>
 
-                    {/* Modern Service Selection */}
                     <div>
                       <div className="mb-4">
                         <label className="block text-sm font-bold text-gray-900">Services Offered</label>
@@ -477,7 +736,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
                 </div>
               )}
 
-              {/* STEP 3: KYC */}
               {step === 3 && (
                 <div className="space-y-8 mt-4">
                   <div>
@@ -517,7 +775,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
                 </div>
               )}
 
-              {/* STEP 4: Safety & Payouts */}
               {step === 4 && (
                 <div className="space-y-8 mt-4">
                   <div>
@@ -598,49 +855,89 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
                 </div>
               )}
 
-              {/* STEP 5: Identity Photo */}
               {step === 5 && (
                 <div className="space-y-8 mt-4 flex flex-col items-center">
                   <div className="text-center w-full">
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">Identity Photo</h2>
-                    <p className="text-gray-500">Take a clear photo of your face.</p>
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">Identity Verification</h2>
+                    <p className="text-gray-500">Let's verify it's really you.</p>
                   </div>
 
                   <div className="w-full flex flex-col items-center justify-center py-8">
-                    {!formData.faceScanBase64 ? (
+                    {livenessStage !== 'success' ? (
                       <>
-                        <div className="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center mb-8">
-                          <ShieldCheck size={64} className="text-blue-600" />
+                        <div className="relative w-64 h-64 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200 shadow-inner mb-8">
+                          <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            muted 
+                            width={480}
+                            height={480}
+                            onLoadedData={predictWebcam}
+                            className="w-full h-full object-cover transform -scale-x-100"
+                          />
+                          <canvas ref={canvasRef} className="hidden" />
+                          
+                          {isAILoading && (
+                            <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center z-10">
+                              <div className="w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin mb-4" />
+                              <p className="text-sm font-bold text-gray-900 px-4 text-center">Loading AI Security Models...</p>
+                            </div>
+                          )}
                         </div>
+                        <p className="text-sm text-gray-500 mt-2 mb-6 font-medium">Ensure your face is well-lit</p>
                         
-                        {error && (
-                          <div className="bg-red-50 text-red-600 border border-red-100 px-4 py-3 rounded-xl text-sm font-medium mb-6 w-full text-center">
-                            {error}
-                          </div>
-                        )}
-                        
-                        <button 
-                          onClick={handleNativeCameraCapture}
-                          className="w-full max-w-xs py-4 bg-black text-white font-bold rounded-xl text-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-                        >
-                          <CameraIcon size={20} />
-                          Open Camera
-                        </button>
+                        <div className="h-16 flex flex-col items-center justify-center text-center">
+                          {livenessStage === 'failed' || error ? (
+                            <>
+                              <p className="text-red-500 font-bold mb-4">{error || 'Verification Failed'}</p>
+                              <div className="flex gap-4">
+                                <button 
+                                  onClick={handleRetake}
+                                  className="px-6 py-3 bg-gray-900 text-white rounded-full font-bold hover:bg-gray-800 transition-colors"
+                                >
+                                  Retake Video
+                                </button>
+                                <label className="px-6 py-3 bg-gray-100 text-gray-900 rounded-full font-bold cursor-pointer hover:bg-gray-200 transition-colors">
+                                  Upload Photo
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                      handleFileUpload(e, 'faceScanBase64');
+                                      setLivenessStage('success');
+                                    }} 
+                                  />
+                                </label>
+                              </div>
+                            </>
+                          ) : (
+                            <motion.p 
+                              key={livenessInstruction}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="text-xl font-bold text-gray-900"
+                            >
+                              {livenessInstruction}
+                            </motion.p>
+                          )}
+                        </div>
                       </>
                     ) : (
                       <div className="flex flex-col items-center text-center">
                         <div className="w-64 h-64 rounded-full overflow-hidden mb-8 border-4 border-gray-900 relative">
-                          <img src={formData.faceScanBase64} alt="Face Scan" className="w-full h-full object-cover" />
+                          <img src={formData.faceScanBase64} alt="Face Scan" className="w-full h-full object-cover transform -scale-x-100" />
                           <div className="absolute inset-0 bg-gray-900/10 flex items-center justify-center">
                             <div className="bg-white rounded-full p-2 shadow-lg">
                               <CheckCircle size={32} className="text-gray-900" />
                             </div>
                           </div>
                         </div>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Photo Captured</h3>
-                        <p className="text-gray-500 mb-8">You are ready to submit your application.</p>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Verification Successful</h3>
+                        <p className="text-gray-500 mb-8">Your identity has been verified.</p>
                         <button 
-                          onClick={handleNativeCameraCapture}
+                          onClick={handleRetake}
                           className="text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors"
                         >
                           Retake Photo
@@ -656,7 +953,6 @@ export const WorkerOnboarding: React.FC<{ onComplete: () => void, onCancel: () =
       </div>
     </div>
 
-      {/* Bottom Action Bar Footer */}
       <div className="fixed bottom-0 left-0 w-full bg-white p-4 border-t border-gray-100 z-50">
         <div className="max-w-md mx-auto flex gap-4">
           {step < 5 ? (
