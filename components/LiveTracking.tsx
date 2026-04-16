@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
@@ -7,6 +7,9 @@ import { Booking } from '../src/types';
 import { calculateDistance, calculateETA } from '../src/utils/location';
 import { Phone, MessageSquare, Navigation, MapPin, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+// IMPORT THE OFFICIAL CAPACITOR PLUGIN
+import { Geolocation } from '@capacitor/geolocation';
 
 // Fix Leaflet marker icon issue
 const redIcon = new L.DivIcon({
@@ -47,49 +50,73 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) =
   const [distance, setDistance] = useState<number | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [showDefaultWarning, setShowDefaultWarning] = useState(true);
+  
+  // Use a ref to store the native tracking ID so we can clear it properly
+  const watchIdRef = useRef<string | null>(null);
 
-  const startTracking = () => {
+  const startTracking = async () => {
     if (userRole !== 'worker') return;
     
     setGeoError(null);
-    const watchId = navigator.geolocation.watchPosition(
-      async (position) => {
-        try {
-          setGeoError(null);
-          const newLocation = { 
-            lat: Number(position.coords.latitude), 
-            lng: Number(position.coords.longitude) 
-          };
+
+    try {
+      // 1. Force Android to ask for GPS permissions
+      const permStatus = await Geolocation.requestPermissions();
+      if (permStatus.location !== 'granted') {
+        setGeoError("Location permission denied. Please allow in Android App Settings.");
+        return;
+      }
+
+      // Clear any existing trackers before starting a new one
+      if (watchIdRef.current) {
+        await Geolocation.clearWatch({ id: watchIdRef.current });
+      }
+
+      // 2. Start native Android GPS tracking
+      const id = await Geolocation.watchPosition(
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        async (position, err) => {
+          if (err) {
+            console.error("Geolocation error:", err);
+            setGeoError(err.message || "Lost GPS signal.");
+            return;
+          }
           
-          setWorkerLocation(newLocation);
-          await updateDoc(doc(db, 'order', order.id), { 
-            workerLocation: newLocation 
-          });
-        } catch (error) {
-          console.error("Error updating worker location:", error);
+          if (position) {
+            try {
+              setGeoError(null);
+              const newLocation = { 
+                lat: Number(position.coords.latitude), 
+                lng: Number(position.coords.longitude) 
+              };
+              
+              setWorkerLocation(newLocation);
+              await updateDoc(doc(db, 'order', order.id), { 
+                workerLocation: newLocation 
+              });
+            } catch (error) {
+              console.error("Error updating worker location:", error);
+            }
+          }
         }
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        let msg = error.message;
-        if (error.code === 1) msg = "Permission denied. Please enable location in browser settings.";
-        setGeoError(msg);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-    return watchId;
+      );
+      
+      watchIdRef.current = id;
+    } catch (err: any) {
+      console.error("Tracking setup failed:", err);
+      setGeoError("Failed to access native GPS.");
+    }
   };
 
   useEffect(() => {
     if (!order || !order.id) return;
     
+    let unsubscribe: (() => void) | undefined;
+
     if (userRole === 'worker') {
-      const watchId = startTracking();
-      return () => {
-        if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
-      };
+      startTracking();
     } else {
-      const unsubscribe = onSnapshot(doc(db, 'order', order.id), (docSnap) => {
+      unsubscribe = onSnapshot(doc(db, 'order', order.id), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data() as Booking;
           if (data.workerLocation) {
@@ -100,8 +127,17 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ order, userRole }) =
           }
         }
       });
-      return () => unsubscribe();
     }
+
+    // Cleanup function when screen closes
+    return () => {
+      if (watchIdRef.current) {
+        Geolocation.clearWatch({ id: watchIdRef.current });
+      }
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [order?.id, userRole]);
 
   useEffect(() => {
