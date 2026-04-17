@@ -23,6 +23,9 @@ import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, arrayUnion
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import CustomerRadar from './CustomerRadar';
 
+// IMPORT THE OFFICIAL NATIVE GPS PLUGIN
+import { Geolocation } from '@capacitor/geolocation';
+
 interface CheckoutProps {
   onClose: () => void;
   setView: (view: AppView) => void;
@@ -86,35 +89,32 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
     fetchUserAddresses();
   }, [auth.currentUser]);
 
-  const handleFetchLocation = () => {
-    if (!navigator.geolocation) return alert('Geolocation not supported');
+  // FIXED: Native Location for Auto-fill Form
+  const handleFetchLocation = async () => {
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      try {
-        const { latitude, longitude } = pos.coords;
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`);
-        const data = await res.json();
-        const addr = data.address;
-        
-        setAddressForm(prev => ({
-          ...prev,
-          street: addr.road || addr.suburb || addr.neighbourhood || '',
-          city: addr.city || addr.town || addr.village || '',
-          state: addr.state || '',
-          pincode: addr.postcode || '',
-          landmark: addr.suburb || ''
-        }));
-      } catch (err) {
-        console.error('Error fetching location:', err);
-        alert('Could not fetch address details. Please enter manually.');
-      } finally {
-        setLocating(false);
-      }
-    }, (err) => {
-      console.error(err);
-      // alert('Location access denied');
+    try {
+      await Geolocation.requestPermissions();
+      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+      const { latitude, longitude } = pos.coords;
+      
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`);
+      const data = await res.json();
+      const addr = data.address;
+      
+      setAddressForm(prev => ({
+        ...prev,
+        street: addr.road || addr.suburb || addr.neighbourhood || '',
+        city: addr.city || addr.town || addr.village || '',
+        state: addr.state || '',
+        pincode: addr.postcode || '',
+        landmark: addr.suburb || ''
+      }));
+    } catch (err) {
+      console.error('Error fetching native location:', err);
+      alert('Could not fetch GPS address details. Please check App Permissions or enter manually.');
+    } finally {
       setLocating(false);
-    });
+    }
   };
 
   const validateAddress = () => {
@@ -135,18 +135,12 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
   };
 
   const handleSaveAddress = async () => {
-    console.log('Attempting to save address:', addressForm);
-    
     if (!auth.currentUser) {
-      console.error('No authenticated user found');
       alert('You must be logged in to save an address');
       return;
     }
 
-    if (!validateAddress()) {
-      console.warn('Address validation failed');
-      return;
-    }
+    if (!validateAddress()) return;
 
     setLoading(true);
     try {
@@ -163,23 +157,17 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
         type: addressForm.type || 'Home'
       };
 
-      console.log('Prepared address object:', newAddress);
-
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await setDoc(userRef, {
         addresses: arrayUnion(newAddress)
       }, { merge: true });
 
-      console.log('Address saved successfully to Firestore');
-
       setSavedAddresses(prev => [...prev, newAddress]);
       setSelectedAddressId(newAddress.id);
       setAddressForm({ type: 'Home' });
       setShowAddressForm(false);
-      setStep(2); // Automatically trigger next step
-      console.log('Moved to step 2');
+      setStep(2);
     } catch (err) {
-      console.error('Firebase Error:', err);
       alert(`Failed to save address: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -193,9 +181,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
   };
 
   const handleConfirmBooking = async () => {
-    console.log('Attempting to confirm booking...');
     if (!auth.currentUser || !selectedAddressId) {
-      console.error('Missing user or address:', { user: auth.currentUser, addressId: selectedAddressId });
       alert('You must be logged in and select an address');
       return;
     }
@@ -205,26 +191,20 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
       let imageUrl: string | null = null;
       if (imageFile) {
         setIsUploadingImage(true);
-        console.log('Uploading image...');
         const storageRef = ref(storage, `booking_images/${auth.currentUser.uid}/${Date.now()}_${imageFile.name}`);
         const uploadResult = await uploadBytes(storageRef, imageFile);
         imageUrl = await getDownloadURL(uploadResult.ref);
-        console.log('Image uploaded:', imageUrl);
         setIsUploadingImage(false);
       }
 
-      let customerLocation = { lat: 26.9124, lng: 75.7873 }; // Default to Jaipur
+      // FIXED: Force Native Capacitor GPS before saving Order to Firebase
+      let customerLocation = { lat: 26.9124, lng: 75.7873 }; 
       try {
-        const pos = await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
-            (error) => reject(error),
-            { timeout: 5000 }
-          );
-        });
-        customerLocation = pos;
+        await Geolocation.requestPermissions();
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+        customerLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       } catch (e) {
-        console.warn('Could not get location, using default:', e);
+        console.warn('Could not get Native GPS location, falling back to default:', e);
       }
 
       const selectedAddr = savedAddresses.find(a => a.id === selectedAddressId);
@@ -254,14 +234,10 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
         customerPhone
       };
 
-      console.log('Saving order to Firestore:', orderPayload);
       const docRef = await addDoc(collection(db, 'order'), orderPayload);
-      console.log('Order saved successfully');
-      
       setCreatedOrderId(docRef.id);
       setStep(5);
     } catch (error) {
-      console.error('Firebase Error confirming booking:', error);
       alert(`Failed to place order: ${error instanceof Error ? error.message : 'Unknown error'}`);
       handleFirestoreError(error, OperationType.WRITE, 'order');
     } finally {
@@ -856,4 +832,4 @@ export const Checkout: React.FC<CheckoutProps> = ({ onClose, setView, setActiveO
       )}
     </motion.div>
   );
-};
+}
