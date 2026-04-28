@@ -103,7 +103,7 @@ export const WorkerWalletDashboard: React.FC<WorkerWalletDashboardProps> = ({ us
     }
   };
 
-  const upiLink = `upi://pay?pa=8440000190-4@ybl&pn=OrGo%20Services&am=${platformDues.toFixed(2)}&cu=INR&tn=OrGo_Dues_${user.uid}`;
+  const upiLink = `upi://pay?pa="enter@"l&pn=OrGo%20Services&am=${platformDues.toFixed(2)}&cu=INR&tn=OrGo_Dues_${user.uid}`;
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return '';
